@@ -47,6 +47,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
       if (lapsRes.data) setExistingLaps(lapsRes.data as LapWithDriver[]);
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {

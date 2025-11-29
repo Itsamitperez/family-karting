@@ -20,7 +20,7 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
   // Get all lap times for this circuit (track record history)
   const { data: allLaps } = await supabase
     .from('laps')
-    .select('lap_time, drivers(name, id), races!inner(circuit_id, race_date)')
+    .select('lap_time, race_id, drivers(name, id), races!inner(id, circuit_id, race_date, race_type)')
     .eq('races.circuit_id', circuit.id)
     .order('lap_time', { ascending: true });
 
@@ -168,6 +168,7 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                     <th className="text-left p-4 text-xs text-soft-white/40 uppercase tracking-wider">Driver</th>
                     <th className="text-right p-4 text-xs text-soft-white/40 uppercase tracking-wider">Lap Time</th>
                     <th className="text-right p-4 text-xs text-soft-white/40 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                    <th className="text-center p-4 text-xs text-soft-white/40 uppercase tracking-wider">Type</th>
                     <th className="text-right p-4 text-xs text-soft-white/40 uppercase tracking-wider">Gap</th>
                   </tr>
                 </thead>
@@ -176,6 +177,8 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                     const lapDriver = lap.drivers as unknown as { name: string; id: string } | null;
                     const gap = index > 0 ? lap.lap_time - allLaps[0].lap_time : 0;
                     const raceDate = lap.races?.race_date;
+                    const raceId = lap.race_id || lap.races?.id;
+                    const raceType = lap.races?.race_type || 'race';
                     
                     return (
                       <tr 
@@ -209,25 +212,65 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <span className={`
-                            font-f1 font-bold
-                            ${index === 0 ? 'text-electric-red' : 'text-soft-white'}
-                          `}>
-                            {formatLapTime(lap.lap_time)}
-                          </span>
+                          {raceId ? (
+                            <Link 
+                              href={`/races/${raceId}`}
+                              className={`
+                                font-f1 font-bold hover:underline transition-colors inline-block
+                                ${index === 0 ? 'text-electric-red hover:text-electric-red/80' : 'text-soft-white hover:text-electric-red'}
+                              `}
+                            >
+                              {formatLapTime(lap.lap_time)}
+                            </Link>
+                          ) : (
+                            <span className={`
+                              font-f1 font-bold
+                              ${index === 0 ? 'text-electric-red' : 'text-soft-white'}
+                            `}>
+                              {formatLapTime(lap.lap_time)}
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-right text-soft-white/40 text-sm hidden sm:table-cell">
-                          {raceDate ? new Date(raceDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          }) : '-'}
+                          {raceId && raceDate ? (
+                            <Link 
+                              href={`/races/${raceId}`}
+                              className="hover:text-soft-white hover:underline transition-colors"
+                            >
+                              {new Date(raceDate).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </Link>
+                          ) : raceDate ? (
+                            new Date(raceDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="p-4 text-center">
+                          {raceType === 'testing' ? (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold
+                              bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/30">
+                              Testing
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold
+                              bg-velocity-yellow/20 text-velocity-yellow border border-velocity-yellow/30">
+                              Race
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-right text-soft-white/40 font-mono text-sm">
                           {index === 0 ? (
                             <span className="text-electric-red font-semibold">Record</span>
                           ) : (
-                            `+${(gap / 1000).toFixed(3)}s`
+                            `+${gap.toFixed(3)}s`
                           )}
                         </td>
                       </tr>

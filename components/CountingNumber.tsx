@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 interface CountingNumberProps {
   value: number;
@@ -13,25 +13,7 @@ export default function CountingNumber({ value, duration = 2000, className = '' 
   const [hasAnimated, setHasAnimated] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          animateValue();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-
-    return () => observer.disconnect();
-  }, [value, hasAnimated]);
-
-  const animateValue = () => {
+  const animateValue = useCallback(() => {
     const startTime = Date.now();
     const startValue = 0;
     const endValue = value;
@@ -55,7 +37,25 @@ export default function CountingNumber({ value, duration = 2000, className = '' 
     };
 
     requestAnimationFrame(tick);
-  };
+  }, [value, duration]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !hasAnimated) {
+          setHasAnimated(true);
+          animateValue();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasAnimated, animateValue]);
 
   return (
     <span ref={ref} className={className}>

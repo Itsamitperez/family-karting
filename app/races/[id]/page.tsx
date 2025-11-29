@@ -339,7 +339,7 @@ export default async function RaceDetailPage({ params }: { params: { id: string 
                           </span>
                         </td>
                         <td className="p-4 text-right text-soft-white/40 font-mono">
-                          {index === 0 ? '-' : `+${(gap / 1000).toFixed(3)}s`}
+                          {index === 0 ? '-' : `+${gap.toFixed(3)}s`}
                         </td>
                       </tr>
                     );

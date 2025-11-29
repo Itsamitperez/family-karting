@@ -43,6 +43,7 @@ export default function NewRacePage() {
       if (driversRes.data) setDrivers(driversRes.data);
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateRace = async (e: React.FormEvent) => {
