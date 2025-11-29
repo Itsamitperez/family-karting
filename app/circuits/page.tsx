@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { MapPin } from 'lucide-react';
+import { MapPin, Timer, Flag, ChevronRight } from 'lucide-react';
 import { CircuitWithStats } from '@/types/database';
 import { formatLapTime } from '@/lib/utils';
 
@@ -52,62 +52,130 @@ export default async function CircuitsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-16">
-        <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Circuits
-        </h1>
-        <p className="text-gray-400 mb-12">Explore all racing circuits</p>
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        {/* Page Header */}
+        <div className="mb-8 md:mb-12">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-cyber-purple flex items-center justify-center">
+              <MapPin size={24} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-soft-white/40 uppercase tracking-wider">
+                Racing Tracks
+              </p>
+              <h1 className="font-f1 text-3xl md:text-4xl font-bold text-soft-white">
+                Circuits
+              </h1>
+            </div>
+          </div>
+          <p className="text-soft-white/50 mt-2 max-w-2xl">
+            Explore all racing circuits and discover the fastest lap times set by our drivers.
+          </p>
+        </div>
 
         {circuitsWithStats.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p>No circuits available yet.</p>
+          <div className="glass-card rounded-3xl p-12 text-center">
+            <MapPin className="w-16 h-16 mx-auto mb-4 text-soft-white/20" />
+            <p className="text-soft-white/50 text-lg">No circuits available yet.</p>
+            <p className="text-soft-white/30 text-sm mt-2">Check back soon for new tracks!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {circuitsWithStats.map((circuit) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {circuitsWithStats.map((circuit, index) => (
               <Link
                 key={circuit.id}
                 href={`/circuits/${circuit.id}`}
-                className="bg-background-secondary border border-gray-800 rounded-lg overflow-hidden hover:border-primary transition-all hover:glow-primary"
+                className="group glass-card rounded-3xl overflow-hidden
+                  animate-slide-up opacity-0"
+                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
               >
-                {circuit.photo_url && (
-                  <div className="h-48 bg-gray-900 relative overflow-hidden">
+                {/* Circuit Image */}
+                {circuit.photo_url ? (
+                  <div className="h-48 relative overflow-hidden">
                     <img
                       src={circuit.photo_url}
                       alt={circuit.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover 
+                        group-hover:scale-105 transition-transform duration-500"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-deep-charcoal via-transparent to-transparent" />
+                    
+                    {/* Status Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className={`
+                        px-3 py-1.5 rounded-full text-xs font-semibold
+                        ${circuit.status === 'active'
+                          ? 'bg-green-lime/20 text-green-lime border border-green-lime/30'
+                          : 'bg-steel-gray text-soft-white/60 border border-white/10'
+                        }
+                      `}>
+                        {circuit.status}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-48 bg-steel-gray/50 flex items-center justify-center relative">
+                    <MapPin className="w-16 h-16 text-soft-white/10" />
+                    {/* Status Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span className={`
+                        px-3 py-1.5 rounded-full text-xs font-semibold
+                        ${circuit.status === 'active'
+                          ? 'bg-green-lime/20 text-green-lime border border-green-lime/30'
+                          : 'bg-steel-gray text-soft-white/60 border border-white/10'
+                        }
+                      `}>
+                        {circuit.status}
+                      </span>
+                    </div>
                   </div>
                 )}
+
+                {/* Content */}
                 <div className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-xl font-bold">{circuit.name}</h3>
-                    <span
-                      className={`px-2 py-1 text-xs rounded ${
-                        circuit.status === 'active'
-                          ? 'bg-green-900/30 text-green-400'
-                          : 'bg-gray-800 text-gray-400'
-                      }`}
-                    >
-                      {circuit.status}
-                    </span>
+                  <h3 className="font-f1 text-xl font-bold text-soft-white mb-1 
+                    group-hover:text-white transition-colors">
+                    {circuit.name}
+                  </h3>
+                  <p className="text-sm text-soft-white/40 capitalize mb-4">{circuit.type}</p>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {circuit.length && (
+                      <div className="bg-white/5 rounded-xl p-3">
+                        <p className="text-xs text-soft-white/40 mb-1">Length</p>
+                        <p className="font-semibold text-soft-white">{circuit.length}m</p>
+                      </div>
+                    )}
+                    <div className="bg-white/5 rounded-xl p-3">
+                      <p className="text-xs text-soft-white/40 mb-1">Races</p>
+                      <p className="font-semibold text-soft-white">{circuit.races_count}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400 mb-4 capitalize">{circuit.type}</p>
-                  {circuit.length && (
-                    <p className="text-sm text-gray-500 mb-2">{circuit.length}m length</p>
-                  )}
+
+                  {/* Best Lap */}
                   {circuit.best_lap && (
-                    <div className="mb-2 p-2 bg-background rounded">
-                      <p className="text-xs text-gray-400">Best Lap</p>
-                      <p className="text-primary font-mono font-bold">
+                    <div className="bg-electric-red/10 border border-electric-red/20 rounded-xl p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Timer size={14} className="text-electric-red" />
+                        <p className="text-xs text-electric-red font-medium">Track Record</p>
+                      </div>
+                      <p className="font-f1 text-xl font-bold text-electric-red">
                         {formatLapTime(circuit.best_lap.lap_time)}
                       </p>
-                      <p className="text-xs text-gray-500">by {circuit.best_lap.driver_name}</p>
+                      <p className="text-xs text-soft-white/50 mt-1">
+                        by {circuit.best_lap.driver_name}
+                      </p>
                     </div>
                   )}
-                  <p className="text-sm text-gray-400">{circuit.races_count} races completed</p>
+
+                  {/* Arrow */}
+                  <div className="mt-4 flex items-center gap-2 text-soft-white/30 
+                    group-hover:text-cyber-purple group-hover:gap-3 transition-all duration-300">
+                    <span className="text-sm font-medium">View Details</span>
+                    <ChevronRight size={16} />
+                  </div>
                 </div>
               </Link>
             ))}
@@ -117,4 +185,3 @@ export default async function CircuitsPage() {
     </div>
   );
 }
-

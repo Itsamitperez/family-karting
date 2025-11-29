@@ -59,3 +59,6 @@ export function getPointsForPosition(position: number): number {
   return POINTS_SYSTEM[position - 1];
 }
 
+// Default placeholder images
+export const DEFAULT_DRIVER_IMAGE = 'https://minpscbyyaqnfzrigfvl.supabase.co/storage/v1/object/public/images/drivers/1764411388253-xzc1r.png';
+

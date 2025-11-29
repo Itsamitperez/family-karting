@@ -1,0 +1,23 @@
+{
+  "name": "Family Karting",
+  "short_name": "FK Racing",
+  "description": "Track your family karting competitions, circuits, drivers, and race results",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0F",
+  "theme_color": "#FF1E1E",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
+

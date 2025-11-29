@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ConditionalHeader from "@/components/shared/ConditionalHeader";
+import RacingBackground from "@/components/shared/RacingBackground";
 import EnvCheck from "@/components/EnvCheck";
 
 export const metadata: Metadata = {
@@ -10,6 +11,16 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: "/apple-icon.png",
   },
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0D0D0F",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -18,13 +29,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className="dark">
+      <body className="antialiased min-h-screen">
         <EnvCheck />
+        <RacingBackground />
         <ConditionalHeader />
-        {children}
+        <main className="relative z-10 pb-mobile-nav">
+          {children}
+        </main>
       </body>
     </html>
   );
 }
-

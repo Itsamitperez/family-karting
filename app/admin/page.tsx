@@ -1,7 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Users, Calendar, Timer, Trophy } from 'lucide-react';
+import { MapPin, Users, Calendar, Timer, Trophy, ExternalLink, Plus } from 'lucide-react';
 
 export default async function AdminDashboard() {
   const supabase = await createServerSupabase();
@@ -25,73 +25,166 @@ export default async function AdminDashboard() {
       count: circuitsResult.count || 0,
       icon: MapPin,
       href: '/admin/circuits',
-      color: 'text-primary',
+      color: 'text-cyber-purple',
+      bgColor: 'bg-cyber-purple/10',
+      borderColor: 'border-cyber-purple/20',
     },
     {
       label: 'Drivers',
       count: driversResult.count || 0,
       icon: Users,
       href: '/admin/drivers',
-      color: 'text-accent',
+      color: 'text-aqua-neon',
+      bgColor: 'bg-aqua-neon/10',
+      borderColor: 'border-aqua-neon/20',
     },
     {
       label: 'Races',
       count: racesResult.count || 0,
       icon: Calendar,
       href: '/admin/races',
-      color: 'text-accent-neon',
+      color: 'text-velocity-yellow',
+      bgColor: 'bg-velocity-yellow/10',
+      borderColor: 'border-velocity-yellow/20',
     },
     {
       label: 'Laps',
       count: lapsResult.count || 0,
       icon: Timer,
       href: '/admin/laps',
-      color: 'text-primary-light',
+      color: 'text-electric-red',
+      bgColor: 'bg-electric-red/10',
+      borderColor: 'border-electric-red/20',
     },
   ];
 
   return (
     <div>
-      <h1 className="text-4xl font-bold mb-8">Admin Dashboard</h1>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-f1 text-3xl md:text-4xl font-bold text-soft-white mb-2">Dashboard</h1>
+        <p className="text-soft-white/50">Welcome back! Here&apos;s your racing data overview.</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Link
               key={stat.label}
               href={stat.href}
-              className="bg-background-secondary border border-gray-800 rounded-lg p-6 hover:border-primary transition-all duration-300 hover:glow-primary"
+              className={`glass-card rounded-2xl p-6 border ${stat.borderColor}
+                hover:scale-[1.02] transition-all duration-200 group`}
             >
               <div className="flex items-center justify-between mb-4">
-                <Icon className={`w-8 h-8 ${stat.color}`} />
-                <span className="text-3xl font-bold">{stat.count}</span>
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} 
+                  flex items-center justify-center`}>
+                  <Icon className={`w-6 h-6 ${stat.color}`} />
+                </div>
+                <span className={`font-f1 text-4xl font-bold ${stat.color}`}>
+                  {stat.count}
+                </span>
               </div>
-              <h3 className="text-lg font-semibold">{stat.label}</h3>
+              <h3 className="text-lg font-semibold text-soft-white group-hover:text-white transition-colors">
+                {stat.label}
+              </h3>
             </Link>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <h2 className="font-f1 text-xl font-bold text-soft-white mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link
+            href="/admin/races/new"
+            className="glass-card rounded-2xl p-5 flex items-center gap-4
+              hover:border-velocity-yellow/30 transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-velocity-yellow/10 
+              flex items-center justify-center group-hover:bg-velocity-yellow/20 transition-colors">
+              <Plus size={20} className="text-velocity-yellow" />
+            </div>
+            <span className="font-medium text-soft-white">New Race</span>
+          </Link>
+          <Link
+            href="/admin/drivers/new"
+            className="glass-card rounded-2xl p-5 flex items-center gap-4
+              hover:border-aqua-neon/30 transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-aqua-neon/10 
+              flex items-center justify-center group-hover:bg-aqua-neon/20 transition-colors">
+              <Plus size={20} className="text-aqua-neon" />
+            </div>
+            <span className="font-medium text-soft-white">New Driver</span>
+          </Link>
+          <Link
+            href="/admin/circuits/new"
+            className="glass-card rounded-2xl p-5 flex items-center gap-4
+              hover:border-cyber-purple/30 transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-cyber-purple/10 
+              flex items-center justify-center group-hover:bg-cyber-purple/20 transition-colors">
+              <Plus size={20} className="text-cyber-purple" />
+            </div>
+            <span className="font-medium text-soft-white">New Circuit</span>
+          </Link>
+          <Link
+            href="/admin/laps/new"
+            className="glass-card rounded-2xl p-5 flex items-center gap-4
+              hover:border-electric-red/30 transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-electric-red/10 
+              flex items-center justify-center group-hover:bg-electric-red/20 transition-colors">
+              <Plus size={20} className="text-electric-red" />
+            </div>
+            <span className="font-medium text-soft-white">New Lap Time</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Links */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Link
           href="/scoreboard"
-          className="bg-background-secondary border border-gray-800 rounded-lg p-6 hover:border-primary transition-all duration-300"
+          className="glass-card rounded-2xl p-6 hover:border-velocity-yellow/30 transition-all group"
         >
-          <Trophy className="w-8 h-8 text-primary mb-4" />
-          <h3 className="text-xl font-semibold mb-2">View Scoreboard</h3>
-          <p className="text-gray-400">Check overall and yearly rankings</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-velocity-yellow/10 
+              flex items-center justify-center">
+              <Trophy className="w-6 h-6 text-velocity-yellow" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-soft-white group-hover:text-white transition-colors">
+                View Scoreboard
+              </h3>
+              <p className="text-sm text-soft-white/50">Check overall and yearly rankings</p>
+            </div>
+            <ExternalLink size={18} className="ml-auto text-soft-white/30" />
+          </div>
         </Link>
 
         <Link
           href="/"
-          className="bg-background-secondary border border-gray-800 rounded-lg p-6 hover:border-primary transition-all duration-300"
+          className="glass-card rounded-2xl p-6 hover:border-electric-red/30 transition-all group"
         >
-          <h3 className="text-xl font-semibold mb-2">View Public Site</h3>
-          <p className="text-gray-400">See how the public views the data</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-electric-red/10 
+              flex items-center justify-center">
+              <ExternalLink className="w-6 h-6 text-electric-red" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-soft-white group-hover:text-white transition-colors">
+                View Public Site
+              </h3>
+              <p className="text-sm text-soft-white/50">See how visitors view the data</p>
+            </div>
+            <ExternalLink size={18} className="ml-auto text-soft-white/30" />
+          </div>
         </Link>
       </div>
     </div>
   );
 }
-

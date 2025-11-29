@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClientSupabase } from '@/lib/supabase/client';
@@ -10,16 +10,18 @@ import {
   Users,
   Calendar,
   Timer,
-  Trophy,
   LogOut,
   Menu,
   X,
+  Home,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClientSupabase();
 
   useEffect(() => {
@@ -29,6 +31,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
     getUser();
   }, []);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -43,75 +49,122 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/laps', icon: Timer, label: 'Laps' },
   ];
 
+  const isActive = (href: string) => {
+    if (href === '/admin') {
+      return pathname === '/admin';
+    }
+    return pathname?.startsWith(href);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Mobile sidebar toggle */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background-secondary border-b border-gray-800 p-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-primary">Admin Panel</h1>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-gray-400 hover:text-white"
-        >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+    <div className="min-h-screen bg-deep-charcoal">
+      {/* Racing Background */}
+      <div className="racing-bg" />
+
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 glass border-b border-white/10">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-electric-red flex items-center justify-center">
+              <span className="font-f1 text-lg font-bold text-white">FK</span>
+            </div>
+            <div>
+              <p className="font-f1 font-bold text-soft-white">Admin Panel</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center
+              hover:bg-white/10 transition-colors"
+          >
+            {sidebarOpen ? <X size={20} className="text-soft-white" /> : <Menu size={20} className="text-soft-white" />}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-background-secondary border-r border-gray-800 z-40 transform transition-transform duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0`}
+        className={`fixed top-0 left-0 h-full w-72 z-40 transform transition-transform duration-300
+          glass border-r border-white/10
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-2xl font-bold text-primary">Family Karting</h1>
-          <p className="text-sm text-gray-400 mt-1">Admin Panel</p>
+        {/* Logo */}
+        <div className="p-6 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-electric-red flex items-center justify-center shadow-glow-red">
+              <span className="font-f1 text-xl font-bold text-white">FK</span>
+            </div>
+            <div>
+              <p className="font-f1 text-lg font-bold text-soft-white">Family Karting</p>
+              <p className="text-xs text-soft-white/50">Admin Panel</p>
+            </div>
+          </div>
         </div>
 
-        <nav className="p-4 space-y-2">
+        {/* Navigation */}
+        <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-background rounded-lg transition-colors"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                  ${active 
+                    ? 'bg-electric-red/10 text-electric-red border border-electric-red/20' 
+                    : 'text-soft-white/70 hover:text-soft-white hover:bg-white/5'
+                  }`}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                <span className="font-medium">{item.label}</span>
+                {active && <ChevronRight size={16} className="ml-auto" />}
               </Link>
             );
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+        {/* View Site Link */}
+        <div className="p-4 border-t border-white/10 mt-4">
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl
+              text-soft-white/70 hover:text-soft-white hover:bg-white/5 transition-all"
+          >
+            <Home size={20} />
+            <span className="font-medium">View Public Site</span>
+          </Link>
+        </div>
+
+        {/* User & Logout */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="mb-4 px-4">
-            <p className="text-sm text-gray-400">Logged in as</p>
-            <p className="text-sm font-medium text-white truncate">{user?.email || 'Admin'}</p>
+            <p className="text-xs text-soft-white/40">Logged in as</p>
+            <p className="text-sm font-medium text-soft-white truncate">{user?.email || 'Admin'}</p>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-background rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
+              text-soft-white/70 hover:text-electric-red hover:bg-electric-red/10 transition-all"
           >
             <LogOut size={20} />
-            <span>Logout</span>
+            <span className="font-medium">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        <main className="p-4 lg:p-8">{children}</main>
+      {/* Main Content */}
+      <div className="lg:pl-72 relative z-10">
+        <main className="p-4 lg:p-8 pt-20 lg:pt-8 min-h-screen">{children}</main>
       </div>
 
-      {/* Overlay for mobile */}
+      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-deep-charcoal/80 backdrop-blur-sm z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
     </div>
   );
 }
-

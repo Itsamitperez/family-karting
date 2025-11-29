@@ -2,7 +2,9 @@
 
 import { useState, useRef } from 'react';
 import { createClientSupabase } from '@/lib/supabase/client';
-import { Upload, X, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { Upload, X, Link as LinkIcon, Loader2 } from 'lucide-react';
+
+type AccentColor = 'cyber-purple' | 'velocity-yellow' | 'aqua-neon' | 'electric-red';
 
 type ImageUploadProps = {
   value: string;
@@ -10,6 +12,34 @@ type ImageUploadProps = {
   bucket: string;
   folder?: string;
   label?: string;
+  accentColor?: AccentColor;
+};
+
+const accentColorStyles: Record<AccentColor, { active: string; focus: string; loading: string; hover: string }> = {
+  'cyber-purple': {
+    active: 'bg-cyber-purple border-cyber-purple text-white',
+    focus: 'focus:border-cyber-purple focus:ring-2 focus:ring-cyber-purple/40',
+    loading: 'border-cyber-purple bg-cyber-purple/10',
+    hover: 'hover:border-cyber-purple/50',
+  },
+  'velocity-yellow': {
+    active: 'bg-velocity-yellow border-velocity-yellow text-black',
+    focus: 'focus:border-velocity-yellow focus:ring-2 focus:ring-velocity-yellow/40',
+    loading: 'border-velocity-yellow bg-velocity-yellow/10',
+    hover: 'hover:border-velocity-yellow/50',
+  },
+  'aqua-neon': {
+    active: 'bg-aqua-neon border-aqua-neon text-black',
+    focus: 'focus:border-aqua-neon focus:ring-2 focus:ring-aqua-neon/40',
+    loading: 'border-aqua-neon bg-aqua-neon/10',
+    hover: 'hover:border-aqua-neon/50',
+  },
+  'electric-red': {
+    active: 'bg-electric-red border-electric-red text-white',
+    focus: 'focus:border-electric-red focus:ring-2 focus:ring-electric-red/40',
+    loading: 'border-electric-red bg-electric-red/10',
+    hover: 'hover:border-electric-red/50',
+  },
 };
 
 export default function ImageUpload({
@@ -18,6 +48,7 @@ export default function ImageUpload({
   bucket,
   folder = '',
   label = 'Image',
+  accentColor = 'cyber-purple',
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [mode, setMode] = useState<'upload' | 'url'>(value ? 'url' : 'upload');
@@ -25,18 +56,17 @@ export default function ImageUpload({
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClientSupabase();
+  const styles = accentColorStyles[accentColor];
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image must be less than 5MB');
       return;
@@ -46,12 +76,10 @@ export default function ImageUpload({
     setUploading(true);
 
     try {
-      // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = folder ? `${folder}/${fileName}` : fileName;
 
-      // Upload to Supabase Storage
       const { data, error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, {
@@ -61,7 +89,6 @@ export default function ImageUpload({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from(bucket)
         .getPublicUrl(data.path);
@@ -92,17 +119,17 @@ export default function ImageUpload({
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium mb-2">{label}</label>
+      <label className="block text-sm font-medium text-soft-white/70 mb-2">{label}</label>
 
       {/* Mode toggle */}
       <div className="flex gap-2 mb-3">
         <button
           type="button"
           onClick={() => setMode('upload')}
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm rounded-xl border transition-all ${
             mode === 'upload'
-              ? 'bg-primary border-primary text-white'
-              : 'bg-background-secondary border-gray-700 text-gray-400 hover:border-gray-600'
+              ? styles.active
+              : 'bg-white/5 border-white/10 text-soft-white/60 hover:border-white/20 hover:bg-white/10'
           }`}
         >
           <Upload size={14} />
@@ -111,10 +138,10 @@ export default function ImageUpload({
         <button
           type="button"
           onClick={() => setMode('url')}
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm rounded-xl border transition-all ${
             mode === 'url'
-              ? 'bg-primary border-primary text-white'
-              : 'bg-background-secondary border-gray-700 text-gray-400 hover:border-gray-600'
+              ? styles.active
+              : 'bg-white/5 border-white/10 text-soft-white/60 hover:border-white/20 hover:bg-white/10'
           }`}
         >
           <LinkIcon size={14} />
@@ -131,26 +158,27 @@ export default function ImageUpload({
             accept="image/*"
             onChange={handleFileChange}
             className="hidden"
-            id="image-upload"
+            id={`image-upload-${label.replace(/\s+/g, '-').toLowerCase()}`}
           />
           <label
-            htmlFor="image-upload"
-            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+            htmlFor={`image-upload-${label.replace(/\s+/g, '-').toLowerCase()}`}
+            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed 
+              rounded-2xl cursor-pointer transition-all ${
               uploading
-                ? 'border-primary bg-primary/10'
-                : 'border-gray-700 hover:border-primary hover:bg-background-secondary'
+                ? styles.loading
+                : `border-white/20 ${styles.hover} hover:bg-white/5`
             }`}
           >
             {uploading ? (
-              <div className="flex items-center gap-2 text-primary">
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <div className={`flex items-center gap-2 ${accentColor === 'velocity-yellow' ? 'text-velocity-yellow' : accentColor === 'aqua-neon' ? 'text-aqua-neon' : accentColor === 'electric-red' ? 'text-electric-red' : 'text-cyber-purple'}`}>
+                <Loader2 size={20} className="animate-spin" />
                 Uploading...
               </div>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-gray-500 mb-2" />
-                <p className="text-sm text-gray-400">Click to upload or drag and drop</p>
-                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                <Upload className="w-8 h-8 text-soft-white/30 mb-2" />
+                <p className="text-sm text-soft-white/50">Click to upload or drag and drop</p>
+                <p className="text-xs text-soft-white/30">PNG, JPG, GIF up to 5MB</p>
               </>
             )}
           </label>
@@ -166,12 +194,15 @@ export default function ImageUpload({
             onChange={(e) => setUrlInput(e.target.value)}
             onBlur={handleUrlSubmit}
             placeholder="https://example.com/image.jpg"
-            className="flex-1 px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+            className={`flex-1 px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
+              text-soft-white placeholder-soft-white/50
+              focus:outline-none ${styles.focus}
+              transition-all`}
           />
           <button
             type="button"
             onClick={handleUrlSubmit}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            className={`px-5 py-3 rounded-xl font-medium transition-all ${styles.active} hover:opacity-90`}
           >
             Set
           </button>
@@ -180,7 +211,7 @@ export default function ImageUpload({
 
       {/* Error message */}
       {error && (
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-electric-red">{error}</p>
       )}
 
       {/* Preview */}
@@ -189,7 +220,7 @@ export default function ImageUpload({
           <img
             src={value}
             alt="Preview"
-            className="h-24 w-auto rounded-lg border border-gray-700 object-cover"
+            className="h-24 w-auto rounded-xl border border-white/10 object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '';
               (e.target as HTMLImageElement).alt = 'Failed to load image';
@@ -198,13 +229,13 @@ export default function ImageUpload({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+            className="absolute -top-2 -right-2 p-1.5 bg-electric-red text-white rounded-full 
+              hover:bg-electric-red-light transition-colors shadow-lg"
           >
-            <X size={14} />
+            <X size={12} />
           </button>
         </div>
       )}
     </div>
   );
 }
-

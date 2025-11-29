@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import ImageUpload from '@/components/ui/ImageUpload';
 
 export default function NewDriverPage() {
@@ -36,59 +36,79 @@ export default function NewDriverPage() {
     }
   };
 
+  const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
+    text-soft-white placeholder-soft-white/50
+    focus:outline-none focus:border-aqua-neon focus:ring-2 focus:ring-aqua-neon/40
+    transition-all`;
+
   return (
     <div>
       <Link
         href="/admin/drivers"
-        className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6"
+        className="inline-flex items-center gap-2 text-soft-white/60 hover:text-soft-white mb-6 transition-colors group"
       >
-        <ArrowLeft size={20} />
+        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         Back to Drivers
       </Link>
 
-      <h1 className="text-4xl font-bold mb-8">New Driver</h1>
+      <h1 className="font-f1 text-3xl font-bold text-soft-white mb-8">New Driver</h1>
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">Name *</label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+        <div className="glass-card rounded-2xl p-6 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Name *</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className={inputClass}
+              placeholder="Enter driver name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Birthday</label>
+            <input
+              type="date"
+              value={formData.birthday}
+              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <ImageUpload
+            label="Driver Photo"
+            value={formData.photo_url}
+            onChange={(url) => setFormData({ ...formData, photo_url: url })}
+            bucket="images"
+            folder="drivers"
+            accentColor="aqua-neon"
           />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Birthday</label>
-          <input
-            type="date"
-            value={formData.birthday}
-            onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <ImageUpload
-          label="Driver Photo"
-          value={formData.photo_url}
-          onChange={(url) => setFormData({ ...formData, photo_url: url })}
-          bucket="images"
-          folder="drivers"
-        />
 
         <div className="flex gap-4">
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-electric-red text-white rounded-xl font-semibold
+              hover:bg-electric-red-light hover:shadow-glow-red transition-all 
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-2"
           >
-            {loading ? 'Creating...' : 'Create Driver'}
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Driver'
+            )}
           </button>
           <Link
             href="/admin/drivers"
-            className="px-6 py-2 bg-background-secondary border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
+            className="px-6 py-3 bg-white/5 border border-white/10 text-soft-white rounded-xl 
+              hover:bg-white/10 hover:border-white/20 transition-all font-medium"
           >
             Cancel
           </Link>
@@ -97,4 +117,3 @@ export default function NewDriverPage() {
     </div>
   );
 }
-

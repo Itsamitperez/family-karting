@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Race, Driver } from '@/types/database';
 
 export default function NewLapPage() {
@@ -49,7 +49,6 @@ export default function NewLapPage() {
 
       if (error) throw error;
 
-      // Recalculate race results if race is done
       const selectedRace = races.find((r) => r.id === formData.race_id);
       if (selectedRace?.status === 'done') {
         await calculateRaceResults(formData.race_id);
@@ -64,7 +63,6 @@ export default function NewLapPage() {
   };
 
   const calculateRaceResults = async (raceId: string) => {
-    // Get all laps for this race
     const { data: laps } = await supabase
       .from('laps')
       .select('*, drivers(id, name)')
@@ -72,7 +70,6 @@ export default function NewLapPage() {
 
     if (!laps || laps.length === 0) return;
 
-    // Get best lap time per driver
     const driverBestLaps = new Map<string, { driver_id: string; lap_time: number }>();
     laps.forEach((lap: any) => {
       const current = driverBestLaps.get(lap.driver_id);
@@ -84,10 +81,8 @@ export default function NewLapPage() {
       }
     });
 
-    // Sort by best lap time
     const sorted = Array.from(driverBestLaps.values()).sort((a, b) => a.lap_time - b.lap_time);
 
-    // Assign positions and points
     const { getPointsForPosition } = await import('@/lib/utils');
     const updates = sorted.map((entry, index) => ({
       race_id: raceId,
@@ -96,7 +91,6 @@ export default function NewLapPage() {
       points: getPointsForPosition(index + 1),
     }));
 
-    // Update race_drivers table
     for (const update of updates) {
       await supabase.from('race_drivers').upsert(update, {
         onConflict: 'race_id,driver_id',
@@ -104,78 +98,96 @@ export default function NewLapPage() {
     }
   };
 
+  const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
+    text-soft-white placeholder-soft-white/50
+    focus:outline-none focus:border-electric-red focus:ring-2 focus:ring-electric-red/40
+    transition-all`;
+
   return (
     <div>
       <Link
         href="/admin/laps"
-        className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6"
+        className="inline-flex items-center gap-2 text-soft-white/60 hover:text-soft-white mb-6 transition-colors group"
       >
-        <ArrowLeft size={20} />
+        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         Back to Laps
       </Link>
 
-      <h1 className="text-4xl font-bold mb-8">New Lap</h1>
+      <h1 className="font-f1 text-3xl font-bold text-soft-white mb-8">New Lap Time</h1>
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">Race *</label>
-          <select
-            required
-            value={formData.race_id}
-            onChange={(e) => setFormData({ ...formData, race_id: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-          >
-            <option value="">Select a race</option>
-            {races.map((race) => (
-              <option key={race.id} value={race.id}>
-                {race.circuits?.name} - {new Date(race.race_date).toLocaleString()}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className="glass-card rounded-2xl p-6 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Race *</label>
+            <select
+              required
+              value={formData.race_id}
+              onChange={(e) => setFormData({ ...formData, race_id: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select a race</option>
+              {races.map((race) => (
+                <option key={race.id} value={race.id}>
+                  {race.circuits?.name} - {new Date(race.race_date).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Driver *</label>
-          <select
-            required
-            value={formData.driver_id}
-            onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-          >
-            <option value="">Select a driver</option>
-            {drivers.map((driver) => (
-              <option key={driver.id} value={driver.id}>
-                {driver.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Driver *</label>
+            <select
+              required
+              value={formData.driver_id}
+              onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select a driver</option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Lap Time (seconds) *</label>
-          <input
-            type="number"
-            step="0.001"
-            required
-            value={formData.lap_time}
-            onChange={(e) => setFormData({ ...formData, lap_time: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            placeholder="e.g., 45.123"
-          />
-          <p className="text-xs text-gray-500 mt-1">Enter time in seconds (e.g., 45.123 for 45.123 seconds)</p>
+          <div>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Lap Time (seconds) *</label>
+            <input
+              type="number"
+              step="0.001"
+              required
+              value={formData.lap_time}
+              onChange={(e) => setFormData({ ...formData, lap_time: e.target.value })}
+              className={inputClass}
+              placeholder="e.g., 45.123"
+            />
+            <p className="text-xs text-soft-white/40 mt-2">Enter time in seconds (e.g., 45.123 for 45.123 seconds)</p>
+          </div>
         </div>
 
         <div className="flex gap-4">
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-electric-red text-white rounded-xl font-semibold
+              hover:bg-electric-red-light hover:shadow-glow-red transition-all 
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-2"
           >
-            {loading ? 'Creating...' : 'Create Lap'}
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Lap'
+            )}
           </button>
           <Link
             href="/admin/laps"
-            className="px-6 py-2 bg-background-secondary border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
+            className="px-6 py-3 bg-white/5 border border-white/10 text-soft-white rounded-xl 
+              hover:bg-white/10 hover:border-white/20 transition-all font-medium"
           >
             Cancel
           </Link>
@@ -184,4 +196,3 @@ export default function NewLapPage() {
     </div>
   );
 }
-

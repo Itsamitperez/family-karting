@@ -26,6 +26,7 @@ export type Race = {
   id: string;
   race_date: string;
   status: 'done' | 'scheduled' | 'planned';
+  race_type: 'race' | 'testing';
   circuit_id: string;
   description: string | null;
   attachment_url: string | null;

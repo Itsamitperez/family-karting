@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Timer, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Timer, Save, Loader2 } from 'lucide-react';
 import { Circuit, Driver } from '@/types/database';
 import { formatLapTime, getPointsForPosition, getCurrentDateTimeLocal } from '@/lib/utils';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 type PendingLap = {
   id: string;
@@ -26,6 +27,7 @@ export default function NewRacePage() {
   const [formData, setFormData] = useState({
     race_date: getCurrentDateTimeLocal(),
     status: 'planned' as 'done' | 'scheduled' | 'planned',
+    race_type: 'race' as 'race' | 'testing',
     circuit_id: '',
     description: '',
     attachment_url: '',
@@ -51,6 +53,7 @@ export default function NewRacePage() {
       const { data, error } = await supabase.from('races').insert({
         race_date: new Date(formData.race_date).toISOString(),
         status: formData.status,
+        race_type: formData.race_type,
         circuit_id: formData.circuit_id,
         description: formData.description || null,
         attachment_url: formData.attachment_url || null,
@@ -58,7 +61,6 @@ export default function NewRacePage() {
 
       if (error) throw error;
       setRaceId(data.id);
-      // Add first empty lap row
       addLapRow();
     } catch (err: any) {
       alert('Error creating race: ' + err.message);
@@ -84,7 +86,6 @@ export default function NewRacePage() {
   const saveLaps = async () => {
     if (!raceId) return;
     
-    // Filter out empty rows
     const validLaps = pendingLaps.filter(lap => lap.driver_id && lap.lap_time);
     if (validLaps.length === 0) {
       router.push('/admin/races');
@@ -93,7 +94,6 @@ export default function NewRacePage() {
 
     setSavingLaps(true);
     try {
-      // Insert all laps
       const lapsToInsert = validLaps.map(lap => ({
         race_id: raceId,
         driver_id: lap.driver_id,
@@ -103,8 +103,8 @@ export default function NewRacePage() {
       const { error: lapsError } = await supabase.from('laps').insert(lapsToInsert);
       if (lapsError) throw lapsError;
 
-      // Calculate race results if race is done
-      if (formData.status === 'done') {
+      // Only calculate results for actual races, not testing sessions
+      if (formData.status === 'done' && formData.race_type === 'race') {
         await calculateRaceResults(raceId);
       }
 
@@ -124,7 +124,6 @@ export default function NewRacePage() {
 
     if (!laps || laps.length === 0) return;
 
-    // Get best lap per driver
     const driverBestLaps = new Map<string, number>();
     laps.forEach((lap) => {
       const current = driverBestLaps.get(lap.driver_id);
@@ -133,7 +132,6 @@ export default function NewRacePage() {
       }
     });
 
-    // Sort by best lap
     const sorted = Array.from(driverBestLaps.entries())
       .sort((a, b) => a[1] - b[1])
       .map(([driver_id], index) => ({
@@ -143,7 +141,6 @@ export default function NewRacePage() {
         points: getPointsForPosition(index + 1),
       }));
 
-    // Upsert race results
     for (const result of sorted) {
       await supabase.from('race_drivers').upsert(result, {
         onConflict: 'race_id,driver_id',
@@ -155,80 +152,102 @@ export default function NewRacePage() {
     router.push('/admin/races');
   };
 
+  const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
+    text-soft-white placeholder-soft-white/50
+    focus:outline-none focus:border-velocity-yellow focus:ring-2 focus:ring-velocity-yellow/40
+    transition-all`;
+
   // Phase 1: Create Race
   if (!raceId) {
     return (
       <div>
         <Link
           href="/admin/races"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6"
+          className="inline-flex items-center gap-2 text-soft-white/60 hover:text-soft-white mb-6 transition-colors group"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
           Back to Races
         </Link>
 
-        <h1 className="text-4xl font-bold mb-8">New Race</h1>
+        <h1 className="font-f1 text-3xl font-bold text-soft-white mb-8">New Race</h1>
 
         <form onSubmit={handleCreateRace} className="max-w-2xl space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Date & Time *</label>
-            <input
-              type="datetime-local"
-              required
-              value={formData.race_date}
-              onChange={(e) => setFormData({ ...formData, race_date: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            />
-          </div>
+          <div className="glass-card rounded-2xl p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Date & Time *</label>
+              <input
+                type="datetime-local"
+                required
+                value={formData.race_date}
+                onChange={(e) => setFormData({ ...formData, race_date: e.target.value })}
+                className={inputClass}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Circuit *</label>
-            <select
-              required
-              value={formData.circuit_id}
-              onChange={(e) => setFormData({ ...formData, circuit_id: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            >
-              <option value="">Select a circuit</option>
-              {circuits.map((circuit) => (
-                <option key={circuit.id} value={circuit.id}>
-                  {circuit.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Circuit *</label>
+              <select
+                required
+                value={formData.circuit_id}
+                onChange={(e) => setFormData({ ...formData, circuit_id: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Select a circuit</option>
+                {circuits.map((circuit) => (
+                  <option key={circuit.id} value={circuit.id}>
+                    {circuit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Status *</label>
-            <select
-              required
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'done' | 'scheduled' | 'planned' })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            >
-              <option value="planned">Planned</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-soft-white/70 mb-2">Status *</label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'done' | 'scheduled' | 'planned' })}
+                  className={inputClass}
+                >
+                  <option value="planned">Planned</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-soft-white/70 mb-2">Type *</label>
+                <select
+                  required
+                  value={formData.race_type}
+                  onChange={(e) => setFormData({ ...formData, race_type: e.target.value as 'race' | 'testing' })}
+                  className={inputClass}
+                >
+                  <option value="race">Race</option>
+                  <option value="testing">Testing</option>
+                </select>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Attachment URL</label>
-            <input
-              type="url"
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={4}
+                className={inputClass}
+                placeholder="Add notes about this race..."
+              />
+            </div>
+
+            <ImageUpload
+              label="Attachment (Photo/Receipt)"
               value={formData.attachment_url}
-              onChange={(e) => setFormData({ ...formData, attachment_url: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+              onChange={(url) => setFormData({ ...formData, attachment_url: url })}
+              bucket="images"
+              folder="races"
+              accentColor="velocity-yellow"
             />
           </div>
 
@@ -236,13 +255,24 @@ export default function NewRacePage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+              className="px-6 py-3 bg-electric-red text-white rounded-xl font-semibold
+                hover:bg-electric-red-light hover:shadow-glow-red transition-all 
+                disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center gap-2"
             >
-              {loading ? 'Creating...' : 'Create Race & Add Laps'}
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Race & Add Laps'
+              )}
             </button>
             <Link
               href="/admin/races"
-              className="px-6 py-2 bg-background-secondary border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
+              className="px-6 py-3 bg-white/5 border border-white/10 text-soft-white rounded-xl 
+                hover:bg-white/10 hover:border-white/20 transition-all font-medium"
             >
               Cancel
             </Link>
@@ -256,21 +286,22 @@ export default function NewRacePage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Add Lap Times</h1>
-        <p className="text-gray-400">
+        <h1 className="font-f1 text-3xl font-bold text-soft-white mb-2">Add Lap Times</h1>
+        <p className="text-soft-white/50">
           Race created! Now add lap times for each driver. You can add multiple laps per driver.
         </p>
       </div>
 
-      <div className="bg-background-secondary border border-gray-800 rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Timer className="text-primary" size={24} />
+      <div className="glass-card rounded-2xl p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-f1 text-xl font-bold text-soft-white flex items-center gap-2">
+            <Timer className="text-electric-red" size={24} />
             Lap Times
           </h2>
           <button
             onClick={addLapRow}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-electric-red text-white rounded-xl 
+              font-medium hover:bg-electric-red-light transition-colors"
           >
             <Plus size={16} />
             Add Lap
@@ -278,7 +309,7 @@ export default function NewRacePage() {
         </div>
 
         {pendingLaps.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">
+          <p className="text-soft-white/40 text-center py-8">
             Click &quot;Add Lap&quot; to add lap times for drivers
           </p>
         ) : (
@@ -286,14 +317,14 @@ export default function NewRacePage() {
             {pendingLaps.map((lap, index) => (
               <div
                 key={lap.id}
-                className="flex items-center gap-4 p-4 bg-background rounded-lg border border-gray-700"
+                className="flex items-center gap-4 p-4 bg-deep-charcoal rounded-xl border border-white/10"
               >
-                <span className="text-gray-400 w-8">#{index + 1}</span>
+                <span className="text-soft-white/40 w-8 font-f1 font-bold">#{index + 1}</span>
                 <div className="flex-1">
                   <select
                     value={lap.driver_id}
                     onChange={(e) => updateLapRow(lap.id, 'driver_id', e.target.value)}
-                    className="w-full px-4 py-2 bg-background-secondary border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+                    className={inputClass}
                   >
                     <option value="">Select driver</option>
                     {drivers.map((driver) => (
@@ -310,17 +341,17 @@ export default function NewRacePage() {
                     placeholder="Time (sec)"
                     value={lap.lap_time}
                     onChange={(e) => updateLapRow(lap.id, 'lap_time', e.target.value)}
-                    className="w-full px-4 py-2 bg-background-secondary border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+                    className={inputClass}
                   />
                 </div>
                 {lap.lap_time && (
-                  <div className="w-24 text-primary font-mono text-sm">
+                  <div className="w-24 text-electric-red font-f1 font-bold text-sm">
                     {formatLapTime(parseFloat(lap.lap_time) || 0)}
                   </div>
                 )}
                 <button
                   onClick={() => removeLapRow(lap.id)}
-                  className="p-2 text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                  className="p-2 text-electric-red hover:bg-electric-red/10 rounded-lg transition-colors"
                 >
                   <Trash2 size={18} />
                 </button>
@@ -334,14 +365,26 @@ export default function NewRacePage() {
         <button
           onClick={saveLaps}
           disabled={savingLaps}
-          className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-3 bg-electric-red text-white rounded-xl 
+            font-semibold hover:bg-electric-red-light hover:shadow-glow-red transition-all 
+            disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Save size={18} />
-          {savingLaps ? 'Saving...' : 'Save & Finish'}
+          {savingLaps ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save size={18} />
+              Save & Finish
+            </>
+          )}
         </button>
         <button
           onClick={skipLaps}
-          className="px-6 py-2 bg-background-secondary border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
+          className="px-6 py-3 bg-white/5 border border-white/10 text-soft-white rounded-xl 
+            hover:bg-white/10 hover:border-white/20 transition-all font-medium"
         >
           Skip (Add laps later)
         </button>

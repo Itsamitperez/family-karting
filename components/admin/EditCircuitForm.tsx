@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Circuit } from '@/types/database';
 import ImageUpload from '@/components/ui/ImageUpload';
 
@@ -48,120 +48,127 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
     }
   };
 
+  const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
+    text-soft-white placeholder-soft-white/50
+    focus:outline-none focus:border-cyber-purple focus:ring-2 focus:ring-cyber-purple/40
+    transition-all`;
+
   return (
     <div>
       <Link
         href="/admin/circuits"
-        className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6"
+        className="inline-flex items-center gap-2 text-soft-white/60 hover:text-soft-white mb-6 transition-colors group"
       >
-        <ArrowLeft size={20} />
+        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         Back to Circuits
       </Link>
 
-      <h1 className="text-4xl font-bold mb-8">Edit Circuit</h1>
+      <h1 className="font-f1 text-3xl font-bold text-soft-white mb-8">Edit Circuit</h1>
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">Name *</label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={4}
-            className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-          />
-        </div>
-
-        <ImageUpload
-          label="Circuit Photo"
-          value={formData.photo_url}
-          onChange={(url) => setFormData({ ...formData, photo_url: url })}
-          bucket="images"
-          folder="circuits"
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+        <div className="glass-card rounded-2xl p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Length (meters)</label>
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Name *</label>
             <input
-              type="number"
-              step="0.01"
-              value={formData.length}
-              onChange={(e) => setFormData({ ...formData, length: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Circuit URL</label>
-            <input
-              type="url"
-              value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Type *</label>
-            <select
+              type="text"
               required
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'outdoor' | 'indoor' })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            >
-              <option value="outdoor">Outdoor</option>
-              <option value="indoor">Indoor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Status *</label>
-            <select
-              required
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Latitude</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={formData.location_lat}
-              onChange={(e) => setFormData({ ...formData, location_lat: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className={inputClass}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Longitude</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={formData.location_long}
-              onChange={(e) => setFormData({ ...formData, location_long: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-gray-700 rounded-lg focus:outline-none focus:border-primary"
+            <label className="block text-sm font-medium text-soft-white/70 mb-2">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={4}
+              className={inputClass}
             />
+          </div>
+
+          <ImageUpload
+            label="Circuit Photo"
+            value={formData.photo_url}
+            onChange={(url) => setFormData({ ...formData, photo_url: url })}
+            bucket="images"
+            folder="circuits"
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Length (meters)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.length}
+                onChange={(e) => setFormData({ ...formData, length: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Circuit URL</label>
+              <input
+                type="url"
+                value={formData.url}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Type *</label>
+              <select
+                required
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'outdoor' | 'indoor' })}
+                className={inputClass}
+              >
+                <option value="outdoor">Outdoor</option>
+                <option value="indoor">Indoor</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Status *</label>
+              <select
+                required
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                className={inputClass}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Latitude</label>
+              <input
+                type="number"
+                step="0.000001"
+                value={formData.location_lat}
+                onChange={(e) => setFormData({ ...formData, location_lat: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-soft-white/70 mb-2">Longitude</label>
+              <input
+                type="number"
+                step="0.000001"
+                value={formData.location_long}
+                onChange={(e) => setFormData({ ...formData, location_long: e.target.value })}
+                className={inputClass}
+              />
+            </div>
           </div>
         </div>
 
@@ -169,13 +176,24 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-electric-red text-white rounded-xl font-semibold
+              hover:bg-electric-red-light hover:shadow-glow-red transition-all 
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-2"
           >
-            {loading ? 'Updating...' : 'Update Circuit'}
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Update Circuit'
+            )}
           </button>
           <Link
             href="/admin/circuits"
-            className="px-6 py-2 bg-background-secondary border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
+            className="px-6 py-3 bg-white/5 border border-white/10 text-soft-white rounded-xl 
+              hover:bg-white/10 hover:border-white/20 transition-all font-medium"
           >
             Cancel
           </Link>
@@ -184,4 +202,3 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
     </div>
   );
 }
-

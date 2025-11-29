@@ -29,10 +29,10 @@ export default function DeleteLapButton({ id }: { id: string }) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="p-2 bg-red-900/20 border border-red-500 text-red-400 rounded hover:bg-red-900/30 transition-colors disabled:opacity-50"
+      className="p-2 bg-electric-red/10 border border-electric-red/30 text-electric-red rounded-lg 
+        hover:bg-electric-red/20 hover:border-electric-red/50 transition-all disabled:opacity-50"
     >
       <Trash2 size={16} />
     </button>
   );
 }
-

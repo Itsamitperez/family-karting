@@ -1,17 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { Trophy, Medal } from 'lucide-react';
+import Link from 'next/link';
+import { Trophy, Medal, TrendingUp, Flag, X, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import { ScoreboardEntry } from '@/types/database';
+
+interface RaceResult {
+  race_id: string;
+  driver_id: string;
+  position: number | null;
+  points: number | null;
+  race_date: string;
+  circuit_name: string;
+}
+
+interface ScoreboardClientProps {
+  overallLeaderboard: ScoreboardEntry[];
+  yearlyLeaderboards: Record<number, ScoreboardEntry[]>;
+  overallRaceResults?: Record<string, RaceResult[]>;
+  yearlyRaceResults?: Record<number, Record<string, RaceResult[]>>;
+}
 
 export default function ScoreboardClient({
   overallLeaderboard,
   yearlyLeaderboards,
-}: {
-  overallLeaderboard: ScoreboardEntry[];
-  yearlyLeaderboards: Record<number, ScoreboardEntry[]>;
-}) {
+  overallRaceResults = {},
+  yearlyRaceResults = {},
+}: ScoreboardClientProps) {
   const [selectedYear, setSelectedYear] = useState<number | 'overall'>('overall');
+  const [selectedDriver, setSelectedDriver] = useState<ScoreboardEntry | null>(null);
 
   const currentLeaderboard =
     selectedYear === 'overall'
@@ -22,93 +39,392 @@ export default function ScoreboardClient({
     .map(Number)
     .sort((a, b) => b - a);
 
-  const getMedalColor = (position: number) => {
-    if (position === 1) return 'text-yellow-400';
-    if (position === 2) return 'text-gray-300';
-    if (position === 3) return 'text-orange-400';
-    return 'text-gray-500';
+  // Get race results for selected driver
+  const getDriverRaceResults = (): RaceResult[] => {
+    if (!selectedDriver) return [];
+    
+    if (selectedYear === 'overall') {
+      return overallRaceResults[selectedDriver.driver_id] || [];
+    }
+    
+    return yearlyRaceResults[selectedYear]?.[selectedDriver.driver_id] || [];
   };
+
+  const driverRaceResults = getDriverRaceResults();
+
+  // Get top 3 for podium
+  const podium = currentLeaderboard.slice(0, 3);
+  const hasValidPodium = podium.length >= 3;
+
+  // Remaining drivers (after top 3)
+  const remainingLeaderboard = currentLeaderboard.slice(3);
 
   return (
     <div>
-      {/* Year selector */}
-      <div className="mb-8 flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedYear('overall')}
-          className={`px-4 py-2 rounded-lg border transition-colors ${
-            selectedYear === 'overall'
-              ? 'bg-primary border-primary text-white'
-              : 'bg-background-secondary border-gray-800 text-gray-400 hover:border-primary'
-          }`}
-        >
-          Overall
-        </button>
-        {years.map((year) => (
+      {/* Year Filter - Above Everything */}
+      <div className="mb-8">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-soft-white/40 mr-2">Filter by:</span>
           <button
-            key={year}
-            onClick={() => setSelectedYear(year)}
-            className={`px-4 py-2 rounded-lg border transition-colors ${
-              selectedYear === year
-                ? 'bg-primary border-primary text-white'
-                : 'bg-background-secondary border-gray-800 text-gray-400 hover:border-primary'
+            onClick={() => setSelectedYear('overall')}
+            className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+              selectedYear === 'overall'
+                ? 'bg-electric-red text-white shadow-glow-red'
+                : 'bg-white/5 text-soft-white/60 hover:bg-white/10 hover:text-soft-white'
             }`}
           >
-            {year}
+            All Time
           </button>
-        ))}
+          {years.map((year) => (
+            <button
+              key={year}
+              onClick={() => setSelectedYear(year)}
+              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                selectedYear === year
+                  ? 'bg-electric-red text-white shadow-glow-red'
+                  : 'bg-white/5 text-soft-white/60 hover:bg-white/10 hover:text-soft-white'
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Leaderboard */}
-      {currentLeaderboard.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Trophy className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p>No data available for this period.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {currentLeaderboard.map((entry, index) => {
-            const position = index + 1;
-            return (
-              <div
-                key={entry.driver_id}
-                className={`bg-background-secondary border rounded-lg p-6 ${
-                  position === 1
-                    ? 'border-primary glow-primary'
-                    : position === 2
-                    ? 'border-accent'
-                    : position === 3
-                    ? 'border-accent-neon'
-                    : 'border-gray-800'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center justify-center w-16">
-                      {position <= 3 ? (
-                        <Medal className={getMedalColor(position)} size={32} />
-                      ) : (
-                        <span className="text-2xl font-bold text-gray-500">#{position}</span>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold">{entry.driver_name}</h3>
-                      <div className="flex gap-4 mt-1 text-sm text-gray-400">
-                        <span>{entry.races_count} races</span>
-                        {entry.wins > 0 && <span>{entry.wins} wins</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold text-primary">{entry.total_points}</p>
-                    <p className="text-sm text-gray-400">points</p>
-                  </div>
+      {/* Podium Section */}
+      {hasValidPodium && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-6">
+            <Medal size={18} className="text-velocity-yellow" />
+            <h2 className="font-f1 text-lg font-bold text-soft-white">
+              {selectedYear === 'overall' ? 'All Time Podium' : `${selectedYear} Podium`}
+            </h2>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3 md:gap-6 items-end">
+            {/* 2nd Place */}
+            <button
+              onClick={() => setSelectedDriver(podium[1])}
+              className="glass-card rounded-3xl p-4 md:p-6 text-center hover:border-gray-400/30 
+                transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 rounded-full 
+                bg-gradient-to-br from-gray-300 to-gray-500 
+                flex items-center justify-center shadow-lg
+                group-hover:scale-110 transition-transform">
+                <span className="font-f1 text-xl md:text-2xl font-bold text-black">2</span>
+              </div>
+              <h3 className="font-f1 text-base md:text-xl font-bold text-soft-white truncate
+                group-hover:text-white transition-colors">
+                {podium[1].driver_name}
+              </h3>
+              <p className="font-f1 text-2xl md:text-3xl font-bold text-gray-400 mt-2">
+                {podium[1].total_points}
+              </p>
+              <p className="text-xs text-soft-white/40 mt-1">points</p>
+              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-soft-white/40">
+                <span>{podium[1].wins} wins</span>
+                <span>•</span>
+                <span>{podium[1].races_count} races</span>
+              </div>
+            </button>
+
+            {/* 1st Place */}
+            <button
+              onClick={() => setSelectedDriver(podium[0])}
+              className="glass-card rounded-3xl p-4 md:p-8 text-center 
+                border-2 border-velocity-yellow/30 relative overflow-hidden
+                hover:border-velocity-yellow/50 transition-all cursor-pointer group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-velocity-yellow/10 to-transparent" />
+              <div className="relative">
+                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 rounded-full 
+                  bg-gradient-to-br from-yellow-400 to-yellow-600 
+                  flex items-center justify-center shadow-lg shadow-yellow-500/30
+                  group-hover:scale-110 transition-transform">
+                  <Trophy size={28} className="text-black" />
+                </div>
+                <h3 className="font-f1 text-lg md:text-2xl font-bold text-velocity-yellow truncate
+                  group-hover:text-white transition-colors">
+                  {podium[0].driver_name}
+                </h3>
+                <p className="font-f1 text-3xl md:text-4xl font-bold text-velocity-yellow mt-2">
+                  {podium[0].total_points}
+                </p>
+                <p className="text-xs text-velocity-yellow/60 mt-1">points</p>
+                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-soft-white/50">
+                  <span>{podium[0].wins} wins</span>
+                  <span>{podium[0].races_count} races</span>
                 </div>
               </div>
-            );
-          })}
+            </button>
+
+            {/* 3rd Place */}
+            <button
+              onClick={() => setSelectedDriver(podium[2])}
+              className="glass-card rounded-3xl p-4 md:p-6 text-center hover:border-amber-600/30 
+                transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 rounded-full 
+                bg-gradient-to-br from-amber-600 to-amber-800 
+                flex items-center justify-center shadow-lg
+                group-hover:scale-110 transition-transform">
+                <span className="font-f1 text-xl md:text-2xl font-bold text-white">3</span>
+              </div>
+              <h3 className="font-f1 text-base md:text-xl font-bold text-soft-white truncate
+                group-hover:text-white transition-colors">
+                {podium[2].driver_name}
+              </h3>
+              <p className="font-f1 text-2xl md:text-3xl font-bold text-amber-600 mt-2">
+                {podium[2].total_points}
+              </p>
+              <p className="text-xs text-soft-white/40 mt-1">points</p>
+              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-soft-white/40">
+                <span>{podium[2].wins} wins</span>
+                <span>•</span>
+                <span>{podium[2].races_count} races</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Standings */}
+      <div>
+        <div className="flex items-center gap-2 mb-6">
+          <TrendingUp size={18} className="text-soft-white/40" />
+          <h2 className="font-f1 text-lg font-bold text-soft-white">
+            {hasValidPodium ? 'Full Standings' : 'Standings'}
+          </h2>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        {currentLeaderboard.length === 0 ? (
+          <div className="glass-card rounded-3xl p-12 text-center">
+            <Trophy className="w-16 h-16 mx-auto mb-4 text-soft-white/20" />
+            <p className="text-soft-white/50 text-lg">No standings data available.</p>
+            <p className="text-soft-white/30 text-sm mt-2">Complete some races to see the leaderboard!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {(hasValidPodium ? remainingLeaderboard : currentLeaderboard).map((entry, index) => {
+              const position = hasValidPodium ? index + 4 : index + 1;
+              
+              return (
+                <button
+                  key={entry.driver_id}
+                  onClick={() => setSelectedDriver(entry)}
+                  className={`
+                    w-full text-left glass-card rounded-2xl p-4 md:p-5
+                    animate-slide-up opacity-0
+                    hover:border-white/20 transition-all cursor-pointer
+                    ${position <= 3 && !hasValidPodium
+                      ? position === 1 
+                        ? 'border-2 border-velocity-yellow/30' 
+                        : position === 2 
+                          ? 'border-2 border-gray-400/30' 
+                          : 'border-2 border-amber-600/30'
+                      : ''
+                    }
+                  `}
+                  style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Position */}
+                    <div className={`
+                      w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center
+                      font-f1 font-bold text-lg
+                      ${position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
+                      ${position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
+                      ${position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
+                      ${position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
+                    `}>
+                      {position}
+                    </div>
+
+                    {/* Driver Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-f1 text-lg md:text-xl font-bold text-soft-white truncate">
+                        {entry.driver_name}
+                      </h3>
+                      <div className="flex items-center gap-4 mt-0.5">
+                        <span className="text-xs md:text-sm text-soft-white/40 flex items-center gap-1">
+                          <Flag size={12} />
+                          {entry.races_count} races
+                        </span>
+                        {entry.wins > 0 && (
+                          <span className="text-xs md:text-sm text-velocity-yellow flex items-center gap-1">
+                            <Trophy size={12} />
+                            {entry.wins} wins
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Points */}
+                    <div className="text-right">
+                      <p className={`
+                        font-f1 text-2xl md:text-3xl font-bold
+                        ${position === 1 ? 'text-velocity-yellow' : ''}
+                        ${position === 2 ? 'text-gray-400' : ''}
+                        ${position === 3 ? 'text-amber-600' : ''}
+                        ${position > 3 ? 'text-electric-red' : ''}
+                      `}>
+                        {entry.total_points}
+                      </p>
+                      <p className="text-xs text-soft-white/40">pts</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Driver Details Modal */}
+      {selectedDriver && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
+          onClick={() => setSelectedDriver(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+          
+          {/* Modal */}
+          <div 
+            className="relative w-full max-w-lg max-h-[80vh] overflow-hidden
+              bg-steel-gray rounded-t-3xl md:rounded-3xl
+              border border-white/10 shadow-2xl
+              animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-steel-gray border-b border-white/10 p-4 md:p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-soft-white/40 uppercase tracking-wider mb-1">
+                    {selectedYear === 'overall' ? 'All Time' : selectedYear} Results
+                  </p>
+                  <h2 className="font-f1 text-2xl font-bold text-soft-white">
+                    {selectedDriver.driver_name}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setSelectedDriver(null)}
+                  className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center
+                    hover:bg-white/10 transition-colors"
+                >
+                  <X size={20} className="text-soft-white/60" />
+                </button>
+              </div>
+
+              {/* Stats Summary */}
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-electric-red/10 border border-electric-red/20 rounded-xl p-3 text-center">
+                  <p className="font-f1 text-xl font-bold text-electric-red">
+                    {selectedDriver.total_points}
+                  </p>
+                  <p className="text-xs text-soft-white/40">Points</p>
+                </div>
+                <div className="bg-velocity-yellow/10 border border-velocity-yellow/20 rounded-xl p-3 text-center">
+                  <p className="font-f1 text-xl font-bold text-velocity-yellow">
+                    {selectedDriver.wins}
+                  </p>
+                  <p className="text-xs text-soft-white/40">Wins</p>
+                </div>
+                <div className="bg-white/5 rounded-xl p-3 text-center">
+                  <p className="font-f1 text-xl font-bold text-soft-white">
+                    {selectedDriver.races_count}
+                  </p>
+                  <p className="text-xs text-soft-white/40">Races</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Race Results List */}
+            <div className="p-4 md:p-6 overflow-y-auto max-h-[50vh]">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar size={16} className="text-cyber-purple" />
+                <h3 className="font-semibold text-soft-white">Race History</h3>
+              </div>
+
+              {driverRaceResults.length > 0 ? (
+                <div className="space-y-2">
+                  {driverRaceResults
+                    .sort((a, b) => new Date(b.race_date).getTime() - new Date(a.race_date).getTime())
+                    .map((result, index) => (
+                      <Link
+                        key={`${result.race_id}-${index}`}
+                        href={`/races/${result.race_id}`}
+                        onClick={() => setSelectedDriver(null)}
+                        className="group flex items-center justify-between p-4 rounded-xl
+                          bg-deep-charcoal border border-white/10 hover:border-electric-red/30 transition-all"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Position Badge - Stunning gradient style */}
+                          <div className={`
+                            w-10 h-10 rounded-xl flex items-center justify-center
+                            font-f1 font-bold text-base shadow-lg
+                            ${result.position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
+                            ${result.position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
+                            ${result.position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
+                            ${!result.position || result.position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
+                          `}>
+                            {result.position || '-'}
+                          </div>
+
+                          <div>
+                            <p className="text-base font-semibold text-soft-white group-hover:text-white transition-colors">
+                              {result.circuit_name}
+                            </p>
+                            <p className="text-sm text-soft-white/50">
+                              {new Date(result.race_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          {result.points !== null && (
+                            <div className="text-right">
+                              <p className="font-f1 text-lg font-bold text-electric-red">
+                                +{result.points}
+                              </p>
+                              <p className="text-xs text-soft-white/40">pts</p>
+                            </div>
+                          )}
+                          <ChevronRight size={18} className="text-soft-white/30 
+                            group-hover:text-electric-red group-hover:translate-x-1 transition-all" />
+                        </div>
+                      </Link>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-center text-soft-white/40 py-8">
+                  No race results found for this period.
+                </p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-steel-gray border-t border-white/10 p-4">
+              <Link
+                href={`/drivers/${selectedDriver.driver_id}`}
+                onClick={() => setSelectedDriver(null)}
+                className="block w-full py-3 rounded-xl bg-electric-red text-white 
+                  font-semibold text-center hover:bg-electric-red-light transition-colors"
+              >
+                View Full Profile
+              </Link>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
