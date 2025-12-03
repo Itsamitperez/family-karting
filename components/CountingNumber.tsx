@@ -55,7 +55,7 @@ export default function CountingNumber({ value, duration = 2000, className = '' 
     }
 
     return () => observer.disconnect();
-  }, [hasAnimated, animateValue]);
+  }, [value, hasAnimated, animateValue]);
 
   return (
     <span ref={ref} className={className}>
@@ -63,4 +63,6 @@ export default function CountingNumber({ value, duration = 2000, className = '' 
     </span>
   );
 }
+
+
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { createClientSupabase } from '@/lib/supabase/client';
 import {
@@ -22,7 +22,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClientSupabase();
+  const supabase = useMemo(() => createClientSupabase(), []);
 
   useEffect(() => {
     const getUser = async () => {
@@ -30,8 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setUser(user);
     };
     getUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase.auth]);
 
   useEffect(() => {
     setSidebarOpen(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -9,7 +9,7 @@ import { Race, Driver } from '@/types/database';
 
 export default function NewLapPage() {
   const router = useRouter();
-  const supabase = createClientSupabase();
+  const supabase = useMemo(() => createClientSupabase(), []);
   const [loading, setLoading] = useState(false);
   const [races, setRaces] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -29,8 +29,7 @@ export default function NewLapPage() {
       if (driversRes.data) setDrivers(driversRes.data);
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

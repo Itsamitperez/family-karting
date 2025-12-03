@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ type PendingLap = {
 
 export default function EditRaceForm({ race }: { race: Race }) {
   const router = useRouter();
-  const supabase = createClientSupabase();
+  const supabase = useMemo(() => createClientSupabase(), []);
   const [loading, setLoading] = useState(false);
   const [savingLaps, setSavingLaps] = useState(false);
   const [circuits, setCircuits] = useState<Circuit[]>([]);
@@ -47,8 +47,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
       if (lapsRes.data) setExistingLaps(lapsRes.data as LapWithDriver[]);
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [race.id]);
+  }, [race.id, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

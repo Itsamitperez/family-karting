@@ -42,6 +42,38 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
     .limit(1)
     .single();
 
+  // Get all laps with circuit info for personal bests per circuit
+  const { data: allLaps } = await supabase
+    .from('laps')
+    .select('lap_time, races(circuit_id, race_date, circuits(id, name, photo_url))')
+    .eq('driver_id', driver.id)
+    .order('lap_time', { ascending: true });
+
+  // Calculate personal best for each circuit
+  const personalBestsByCircuit = new Map<string, {
+    circuit_id: string;
+    circuit_name: string;
+    circuit_photo: string | null;
+    best_time: number;
+    race_date: string;
+  }>();
+
+  allLaps?.forEach((lap: any) => {
+    const circuitId = lap.races?.circuits?.id;
+    if (circuitId && !personalBestsByCircuit.has(circuitId)) {
+      personalBestsByCircuit.set(circuitId, {
+        circuit_id: circuitId,
+        circuit_name: lap.races?.circuits?.name || 'Unknown',
+        circuit_photo: lap.races?.circuits?.photo_url || null,
+        best_time: lap.lap_time,
+        race_date: lap.races?.race_date,
+      });
+    }
+  });
+
+  const personalBests = Array.from(personalBestsByCircuit.values())
+    .sort((a, b) => a.circuit_name.localeCompare(b.circuit_name));
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -57,10 +89,10 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
 
         {/* Hero Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-          {/* Driver Photo & Stats */}
-          <div className="space-y-4">
+          {/* Driver Photo & Stats - uses flex with order for mobile reordering */}
+          <div className="flex flex-col gap-4">
             {/* Photo */}
-            <div className="glass-card rounded-3xl overflow-hidden">
+            <div className="glass-card rounded-3xl overflow-hidden order-1">
               <div className="h-72 md:h-96 relative">
                 <img
                   src={driver.photo_url || DEFAULT_DRIVER_IMAGE}
@@ -71,8 +103,24 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
               </div>
             </div>
 
+            {/* Name & Info - Shows after photo on mobile, hidden on lg (shown in right column) */}
+            <div className="glass-card rounded-2xl p-6 order-2 lg:hidden">
+              <h1 className="font-f1 text-4xl font-bold text-soft-white mb-2">
+                {driver.name}
+              </h1>
+              {driver.birthday && (
+                <p className="text-soft-white/50">
+                  Born: {new Date(driver.birthday).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              )}
+            </div>
+
             {/* Stats Card */}
-            <div className="glass-card rounded-2xl p-5">
+            <div className="glass-card rounded-2xl p-5 order-3">
               <h2 className="font-f1 text-lg font-bold mb-4 text-soft-white">Statistics</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-electric-red/10 border border-electric-red/20 rounded-xl p-3 text-center">
@@ -105,8 +153,8 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
 
           {/* Driver Info & Race History */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Name & Info */}
-            <div className="glass-card rounded-2xl p-6">
+            {/* Name & Info - Hidden on mobile (shown in left column), visible on lg */}
+            <div className="glass-card rounded-2xl p-6 hidden lg:block">
               <h1 className="font-f1 text-4xl md:text-5xl font-bold text-soft-white mb-2">
                 {driver.name}
               </h1>
@@ -120,6 +168,69 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
                 </p>
               )}
             </div>
+
+            {/* Personal Best in Every Circuit */}
+            {personalBests.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Timer size={18} className="text-aqua-neon" />
+                  <h2 className="font-f1 text-lg font-bold text-soft-white">Personal Best in Every Circuit</h2>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {personalBests.map((pb, index) => (
+                    <Link
+                      key={pb.circuit_id}
+                      href={`/circuits/${pb.circuit_id}`}
+                      className="group glass-card rounded-2xl overflow-hidden
+                        animate-slide-up opacity-0"
+                      style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
+                    >
+                      {/* Circuit Background */}
+                      <div className="relative h-24">
+                        {pb.circuit_photo ? (
+                          <img
+                            src={pb.circuit_photo}
+                            alt={pb.circuit_name}
+                            className="w-full h-full object-cover opacity-50 group-hover:opacity-70 
+                              group-hover:scale-105 transition-all duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-cyber-purple/20 to-aqua-neon/10" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-deep-charcoal via-deep-charcoal/60 to-transparent" />
+                        
+                        {/* Content Overlay */}
+                        <div className="absolute inset-0 p-4 flex items-end justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <MapPin size={12} className="text-soft-white/50" />
+                              <p className="text-sm font-semibold text-soft-white group-hover:text-white transition-colors">
+                                {pb.circuit_name}
+                              </p>
+                            </div>
+                            <p className="text-xs text-soft-white/40">
+                              Set on {new Date(pb.race_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          
+                          <div className="bg-aqua-neon/20 border border-aqua-neon/30 rounded-xl px-3 py-2 text-center">
+                            <p className="font-f1 text-lg font-bold text-aqua-neon">
+                              {formatLapTime(pb.best_time)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Race History */}
             <div>
