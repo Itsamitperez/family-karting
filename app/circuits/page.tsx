@@ -1,8 +1,10 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { MapPin, Timer, Flag, ChevronRight } from 'lucide-react';
+import { MapPin, Timer, Flag, ChevronRight, Clock, CloudRain } from 'lucide-react';
 import { CircuitWithStats } from '@/types/database';
-import { formatLapTime } from '@/lib/utils';
+import { formatLapTime, isCircuitOpen, getTodayOperatingHours } from '@/lib/utils';
+import { fetchCurrentWeather } from '@/lib/actions/weather';
+import { getWeatherEmoji } from '@/lib/weather';
 
 export default async function CircuitsPage() {
   const supabase = await createServerSupabase();
@@ -13,8 +15,12 @@ export default async function CircuitsPage() {
     .select('*')
     .order('name');
 
-  // Get best laps for each circuit
-  const circuitsWithStatsUnsorted: CircuitWithStats[] = await Promise.all(
+  // Get best laps for each circuit and fetch weather
+  const circuitsWithStatsUnsorted: (CircuitWithStats & { 
+    currentWeather?: { temp: number; description: string; icon: string } | null;
+    isOpen: boolean;
+    todayHours: string;
+  })[] = await Promise.all(
     (circuits || []).map(async (circuit) => {
       // Get best lap for this circuit
       const { data: bestLap } = await supabase
@@ -31,6 +37,22 @@ export default async function CircuitsPage() {
         .select('id', { count: 'exact', head: true })
         .eq('circuit_id', circuit.id);
 
+      // Fetch current weather if circuit has location
+      let currentWeather = null;
+      if (circuit.location_lat && circuit.location_long) {
+        const weather = await fetchCurrentWeather(
+          Number(circuit.location_lat),
+          Number(circuit.location_long)
+        );
+        if (weather) {
+          currentWeather = {
+            temp: weather.temp,
+            description: weather.description,
+            icon: weather.icon,
+          };
+        }
+      }
+
       const driver = bestLap?.drivers as unknown as { name: string; id: string } | null;
       return {
         ...circuit,
@@ -42,14 +64,22 @@ export default async function CircuitsPage() {
             }
           : null,
         races_count: racesCount || 0,
+        currentWeather,
+        isOpen: isCircuitOpen(circuit.operating_hours),
+        todayHours: getTodayOperatingHours(circuit.operating_hours),
       };
     })
   );
 
-  // Sort by most races completed first
-  const circuitsWithStats = circuitsWithStatsUnsorted.sort(
-    (a, b) => b.races_count - a.races_count
-  );
+  // Sort: active circuits first (by races count), then inactive circuits
+  const circuitsWithStats = circuitsWithStatsUnsorted.sort((a, b) => {
+    // First, sort by status (active first)
+    if (a.status === 'active' && b.status === 'inactive') return -1;
+    if (a.status === 'inactive' && b.status === 'active') return 1;
+    
+    // Then by race count (descending)
+    return b.races_count - a.races_count;
+  });
 
   return (
     <div className="min-h-screen">
@@ -139,6 +169,29 @@ export default async function CircuitsPage() {
                     {circuit.name}
                   </h3>
                   <p className="text-sm text-soft-white/40 capitalize mb-4">{circuit.type}</p>
+
+                  {/* Operating Hours & Weather */}
+                  {(circuit.operating_hours || circuit.currentWeather) && (
+                    <div className="mb-4 space-y-2">
+                      {circuit.operating_hours && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock size={14} className={circuit.isOpen ? 'text-green-lime' : 'text-soft-white/40'} />
+                          <span className="text-soft-white/60">{circuit.todayHours}</span>
+                        </div>
+                      )}
+                      {circuit.currentWeather && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-lg">{getWeatherEmoji(circuit.currentWeather.description)}</span>
+                          <span className="text-soft-white/80 font-medium">
+                            {Math.round(circuit.currentWeather.temp)}°C
+                          </span>
+                          <span className="text-soft-white/50">
+                            {circuit.currentWeather.description}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-3 mb-4">

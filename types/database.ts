@@ -1,3 +1,19 @@
+export type DayOperatingHours = {
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+};
+
+export type OperatingHours = {
+  monday: DayOperatingHours;
+  tuesday: DayOperatingHours;
+  wednesday: DayOperatingHours;
+  thursday: DayOperatingHours;
+  friday: DayOperatingHours;
+  saturday: DayOperatingHours;
+  sunday: DayOperatingHours;
+};
+
 export type Circuit = {
   id: string;
   name: string;
@@ -9,6 +25,7 @@ export type Circuit = {
   location_lat: number | null;
   location_long: number | null;
   status: 'active' | 'inactive';
+  operating_hours: OperatingHours | null;
   created_at: string;
   updated_at: string;
 };

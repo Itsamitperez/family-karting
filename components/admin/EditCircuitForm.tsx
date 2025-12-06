@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { Circuit } from '@/types/database';
+import { Circuit, OperatingHours } from '@/types/database';
 import ImageUpload from '@/components/ui/ImageUpload';
+import OperatingHoursInput from './OperatingHoursInput';
 
 export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
   const router = useRouter();
@@ -24,6 +25,10 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
     status: circuit.status,
   });
 
+  const [operatingHours, setOperatingHours] = useState<OperatingHours | null>(
+    circuit.operating_hours
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -36,6 +41,7 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
           length: formData.length ? parseFloat(formData.length) : null,
           location_lat: formData.location_lat ? parseFloat(formData.location_lat) : null,
           location_long: formData.location_long ? parseFloat(formData.location_long) : null,
+          operating_hours: operatingHours,
         })
         .eq('id', circuit.id);
 
@@ -170,6 +176,11 @@ export default function EditCircuitForm({ circuit }: { circuit: Circuit }) {
               />
             </div>
           </div>
+
+          <OperatingHoursInput
+            value={operatingHours}
+            onChange={setOperatingHours}
+          />
         </div>
 
         <div className="flex gap-4">

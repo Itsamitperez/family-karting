@@ -1,8 +1,10 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, ExternalLink, Timer, Flag, Calendar, ChevronRight, Trophy } from 'lucide-react';
-import { formatLapTime, formatDateTime } from '@/lib/utils';
+import { ArrowLeft, MapPin, ExternalLink, Timer, Flag, Calendar, ChevronRight, Trophy, Clock, CloudRain } from 'lucide-react';
+import { formatLapTime, formatDateTime, isCircuitOpen, getTodayOperatingHours } from '@/lib/utils';
+import { fetchCurrentWeather } from '@/lib/actions/weather';
+import { getWeatherEmoji } from '@/lib/weather';
 
 export default async function CircuitDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createServerSupabase();
@@ -34,6 +36,19 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
     .select('*')
     .eq('circuit_id', circuit.id)
     .order('race_date', { ascending: false });
+
+  // Get current weather if circuit has location
+  let currentWeather = null;
+  if (circuit.location_lat && circuit.location_long) {
+    currentWeather = await fetchCurrentWeather(
+      Number(circuit.location_lat),
+      Number(circuit.location_long)
+    );
+  }
+
+  // Check if circuit is currently open
+  const circuitIsOpen = isCircuitOpen(circuit.operating_hours);
+  const todayHours = getTodayOperatingHours(circuit.operating_hours);
 
   return (
     <div className="min-h-screen">
@@ -76,17 +91,52 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                 <h1 className="font-f1 text-3xl md:text-4xl font-bold text-soft-white">
                   {circuit.name}
                 </h1>
-                <span className={`
-                  px-3 py-1.5 rounded-full text-xs font-semibold shrink-0
-                  ${circuit.status === 'active'
-                    ? 'bg-green-lime/20 text-green-lime border border-green-lime/30'
-                    : 'bg-steel-gray text-soft-white/60 border border-white/10'
-                  }
-                `}>
-                  {circuit.status}
-                </span>
+                <div className="flex flex-col gap-2 items-end shrink-0">
+                  <span className={`
+                    px-3 py-1.5 rounded-full text-xs font-semibold
+                    ${circuit.status === 'active'
+                      ? 'bg-green-lime/20 text-green-lime border border-green-lime/30'
+                      : 'bg-steel-gray text-soft-white/60 border border-white/10'
+                    }
+                  `}>
+                    {circuit.status}
+                  </span>
+                  {circuit.operating_hours && (
+                    <span className={`
+                      px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5
+                      ${circuitIsOpen
+                        ? 'bg-green-lime/20 text-green-lime border border-green-lime/30'
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }
+                    `}>
+                      <Clock size={12} />
+                      {circuitIsOpen ? 'Open Now' : 'Closed'}
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-soft-white/50 capitalize">{circuit.type} Circuit</p>
+              <p className="text-soft-white/50 capitalize mb-3">{circuit.type} Circuit</p>
+              
+              {/* Current Status */}
+              <div className="flex flex-wrap gap-4 text-sm">
+                {circuit.operating_hours && (
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className={circuitIsOpen ? 'text-green-lime' : 'text-soft-white/40'} />
+                    <span className="text-soft-white/70">{todayHours}</span>
+                  </div>
+                )}
+                {currentWeather && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{getWeatherEmoji(currentWeather.description)}</span>
+                    <span className="text-soft-white/80 font-medium">
+                      {Math.round(currentWeather.temp)}°C
+                    </span>
+                    <span className="text-soft-white/50">
+                      {currentWeather.description}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Stats Grid */}
@@ -130,6 +180,47 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
               <div className="glass-card rounded-2xl p-5">
                 <p className="text-xs text-soft-white/40 mb-2">About</p>
                 <p className="text-soft-white/80 leading-relaxed">{circuit.description}</p>
+              </div>
+            )}
+
+            {/* Operating Hours */}
+            {circuit.operating_hours && (
+              <div className="glass-card rounded-2xl p-5">
+                <p className="text-xs text-soft-white/40 mb-3">Operating Hours</p>
+                <div className="space-y-2">
+                  {[
+                    { key: 'sunday' as const, label: 'Sunday' },
+                    { key: 'monday' as const, label: 'Monday' },
+                    { key: 'tuesday' as const, label: 'Tuesday' },
+                    { key: 'wednesday' as const, label: 'Wednesday' },
+                    { key: 'thursday' as const, label: 'Thursday' },
+                    { key: 'friday' as const, label: 'Friday' },
+                    { key: 'saturday' as const, label: 'Saturday' },
+                  ].map(({ key, label }) => {
+                    const dayHours = circuit.operating_hours?.[key];
+                    if (!dayHours) return null;
+                    
+                    return (
+                      <div key={key} className="flex justify-between items-center">
+                        <span className={`
+                          text-sm font-medium
+                          ${dayHours.isOpen ? 'text-soft-white' : 'text-soft-white/40'}
+                        `}>
+                          {label}
+                        </span>
+                        <span className={`
+                          text-sm
+                          ${dayHours.isOpen ? 'text-soft-white/80' : 'text-soft-white/40'}
+                        `}>
+                          {dayHours.isOpen 
+                            ? `${dayHours.openTime} - ${dayHours.closeTime}`
+                            : 'Closed'
+                          }
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

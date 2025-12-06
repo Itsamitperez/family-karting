@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { OperatingHours } from '@/types/database';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,4 +62,48 @@ export function getPointsForPosition(position: number): number {
 
 // Default placeholder images
 export const DEFAULT_DRIVER_IMAGE = 'https://minpscbyyaqnfzrigfvl.supabase.co/storage/v1/object/public/images/drivers/1764411388253-xzc1r.png';
+
+/**
+ * Check if a circuit is currently open based on operating hours
+ */
+export function isCircuitOpen(operatingHours: OperatingHours | null): boolean {
+  if (!operatingHours) return false;
+
+  const now = new Date();
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+  const currentDay = dayNames[now.getDay()];
+  
+  const todayHours = operatingHours[currentDay];
+  
+  if (!todayHours || !todayHours.isOpen) return false;
+
+  // Parse current time
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
+  // Parse open and close times
+  const [openHour, openMin] = todayHours.openTime.split(':').map(Number);
+  const [closeHour, closeMin] = todayHours.closeTime.split(':').map(Number);
+  
+  const openMinutes = openHour * 60 + openMin;
+  const closeMinutes = closeHour * 60 + closeMin;
+  
+  return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+}
+
+/**
+ * Get formatted operating hours for current day
+ */
+export function getTodayOperatingHours(operatingHours: OperatingHours | null): string {
+  if (!operatingHours) return 'Hours not set';
+
+  const now = new Date();
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+  const currentDay = dayNames[now.getDay()];
+  
+  const todayHours = operatingHours[currentDay];
+  
+  if (!todayHours || !todayHours.isOpen) return 'Closed today';
+
+  return `${todayHours.openTime} - ${todayHours.closeTime}`;
+}
 

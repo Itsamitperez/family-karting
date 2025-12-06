@@ -98,3 +98,16 @@ export async function clearRaceWeather(raceId: string) {
   return { success: true };
 }
 
+/**
+ * Fetch current weather for a circuit location
+ */
+export async function fetchCurrentWeather(lat: number, lon: number) {
+  try {
+    const weatherData = await fetchWeatherForDate(lat, lon, new Date());
+    return weatherData;
+  } catch (error) {
+    console.error('Error fetching current weather:', error);
+    return null;
+  }
+}
+

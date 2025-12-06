@@ -6,6 +6,8 @@ import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import ImageUpload from '@/components/ui/ImageUpload';
+import OperatingHoursInput from '@/components/admin/OperatingHoursInput';
+import { OperatingHours } from '@/types/database';
 
 export default function NewCircuitPage() {
   const router = useRouter();
@@ -23,6 +25,8 @@ export default function NewCircuitPage() {
     status: 'active' as 'active' | 'inactive',
   });
 
+  const [operatingHours, setOperatingHours] = useState<OperatingHours | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -33,6 +37,7 @@ export default function NewCircuitPage() {
         length: formData.length ? parseFloat(formData.length) : null,
         location_lat: formData.location_lat ? parseFloat(formData.location_lat) : null,
         location_long: formData.location_long ? parseFloat(formData.location_long) : null,
+        operating_hours: operatingHours,
       });
 
       if (error) throw error;
@@ -172,6 +177,11 @@ export default function NewCircuitPage() {
               />
             </div>
           </div>
+
+          <OperatingHoursInput
+            value={operatingHours}
+            onChange={setOperatingHours}
+          />
         </div>
 
         <div className="flex gap-4">
