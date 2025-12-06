@@ -37,9 +37,9 @@ export default async function CircuitsPage() {
         .select('id', { count: 'exact', head: true })
         .eq('circuit_id', circuit.id);
 
-      // Fetch current weather if circuit has location
+      // Fetch current weather only for active circuits with location
       let currentWeather = null;
-      if (circuit.location_lat && circuit.location_long) {
+      if (circuit.status === 'active' && circuit.location_lat && circuit.location_long) {
         const weather = await fetchCurrentWeather(
           Number(circuit.location_lat),
           Number(circuit.location_long)
@@ -65,8 +65,16 @@ export default async function CircuitsPage() {
           : null,
         races_count: racesCount || 0,
         currentWeather,
-        isOpen: isCircuitOpen(circuit.operating_hours),
-        todayHours: getTodayOperatingHours(circuit.operating_hours),
+        isOpen: isCircuitOpen(
+          circuit.operating_hours,
+          circuit.location_lat,
+          circuit.location_long
+        ),
+        todayHours: getTodayOperatingHours(
+          circuit.operating_hours,
+          circuit.location_lat,
+          circuit.location_long
+        ),
       };
     })
   );

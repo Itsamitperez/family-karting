@@ -37,18 +37,26 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
     .eq('circuit_id', circuit.id)
     .order('race_date', { ascending: false });
 
-  // Get current weather if circuit has location
+  // Get current weather only for active circuits with location
   let currentWeather = null;
-  if (circuit.location_lat && circuit.location_long) {
+  if (circuit.status === 'active' && circuit.location_lat && circuit.location_long) {
     currentWeather = await fetchCurrentWeather(
       Number(circuit.location_lat),
       Number(circuit.location_long)
     );
   }
 
-  // Check if circuit is currently open
-  const circuitIsOpen = isCircuitOpen(circuit.operating_hours);
-  const todayHours = getTodayOperatingHours(circuit.operating_hours);
+  // Check if circuit is currently open (using circuit's local timezone)
+  const circuitIsOpen = isCircuitOpen(
+    circuit.operating_hours,
+    circuit.location_lat,
+    circuit.location_long
+  );
+  const todayHours = getTodayOperatingHours(
+    circuit.operating_hours,
+    circuit.location_lat,
+    circuit.location_long
+  );
 
   return (
     <div className="min-h-screen">

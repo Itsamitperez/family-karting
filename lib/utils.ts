@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { OperatingHours } from '@/types/database';
+import ct from 'city-timezones';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -64,21 +65,83 @@ export function getPointsForPosition(position: number): number {
 export const DEFAULT_DRIVER_IMAGE = 'https://minpscbyyaqnfzrigfvl.supabase.co/storage/v1/object/public/images/drivers/1764411388253-xzc1r.png';
 
 /**
- * Check if a circuit is currently open based on operating hours
+ * Get current time in a specific timezone based on GPS coordinates
  */
-export function isCircuitOpen(operatingHours: OperatingHours | null): boolean {
-  if (!operatingHours) return false;
+function getLocalTime(lat: number, lon: number): { date: Date; dayIndex: number; hours: number; minutes: number } {
+  try {
+    // Get timezone from coordinates using city-timezones
+    const lookup = ct.lookupViaCoords(lat, lon);
+    
+    // Get the timezone (e.g., "America/New_York", "Asia/Tokyo")
+    const timezone = lookup && lookup.length > 0 ? lookup[0].timezone : 'UTC';
+    
+    // Get current time in that timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      weekday: 'short'
+    });
+    
+    const parts = formatter.formatToParts(new Date());
+    const getValue = (type: string) => parts.find(p => p.type === type)?.value || '0';
+    
+    const year = parseInt(getValue('year'));
+    const month = parseInt(getValue('month')) - 1; // JS months are 0-indexed
+    const day = parseInt(getValue('day'));
+    const hours = parseInt(getValue('hour'));
+    const minutes = parseInt(getValue('minute'));
+    const seconds = parseInt(getValue('second'));
+    const weekday = getValue('weekday');
+    
+    // Convert weekday to day index (0 = Sunday)
+    const dayMap: Record<string, number> = {
+      'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    };
+    const dayIndex = dayMap[weekday] || 0;
+    
+    const localDate = new Date(year, month, day, hours, minutes, seconds);
+    
+    return { date: localDate, dayIndex, hours, minutes };
+  } catch (error) {
+    // Silently fallback to server time (no console.error to avoid log spam)
+    const now = new Date();
+    return {
+      date: now,
+      dayIndex: now.getDay(),
+      hours: now.getHours(),
+      minutes: now.getMinutes()
+    };
+  }
+}
 
-  const now = new Date();
+/**
+ * Check if a circuit is currently open based on operating hours
+ * Uses circuit's local timezone from GPS coordinates
+ */
+export function isCircuitOpen(
+  operatingHours: OperatingHours | null,
+  lat: number | null,
+  lon: number | null
+): boolean {
+  if (!operatingHours || !lat || !lon) return false;
+
+  const { dayIndex, hours, minutes } = getLocalTime(lat, lon);
+  
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
-  const currentDay = dayNames[now.getDay()];
+  const currentDay = dayNames[dayIndex];
   
   const todayHours = operatingHours[currentDay];
   
   if (!todayHours || !todayHours.isOpen) return false;
 
-  // Parse current time
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  // Parse current time in minutes
+  const currentMinutes = hours * 60 + minutes;
   
   // Parse open and close times
   const [openHour, openMin] = todayHours.openTime.split(':').map(Number);
@@ -91,14 +154,20 @@ export function isCircuitOpen(operatingHours: OperatingHours | null): boolean {
 }
 
 /**
- * Get formatted operating hours for current day
+ * Get formatted operating hours for current day in circuit's local timezone
  */
-export function getTodayOperatingHours(operatingHours: OperatingHours | null): string {
+export function getTodayOperatingHours(
+  operatingHours: OperatingHours | null,
+  lat: number | null,
+  lon: number | null
+): string {
   if (!operatingHours) return 'Hours not set';
+  if (!lat || !lon) return 'Location not set';
 
-  const now = new Date();
+  const { dayIndex } = getLocalTime(lat, lon);
+  
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
-  const currentDay = dayNames[now.getDay()];
+  const currentDay = dayNames[dayIndex];
   
   const todayHours = operatingHours[currentDay];
   
