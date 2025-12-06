@@ -6,6 +6,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: 'openweathermap.org',
+      },
     ],
     // Optimize images for mobile
     formats: ['image/avif', 'image/webp'],

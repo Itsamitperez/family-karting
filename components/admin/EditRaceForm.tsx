@@ -4,10 +4,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Timer, Save, RefreshCw, Loader2, Users, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Timer, Save, RefreshCw, Loader2, Users, Check, Cloud, Droplets, Wind, Trash } from 'lucide-react';
 import { Race, Circuit, Driver, Lap } from '@/types/database';
 import { formatLapTime, getPointsForPosition, toDateTimeLocal } from '@/lib/utils';
+import { getWeatherIconUrl, getWeatherEmoji } from '@/lib/weather';
+import { fetchRaceWeather, clearRaceWeather } from '@/lib/actions/weather';
 import ImageUpload from '@/components/ui/ImageUpload';
+import Image from 'next/image';
 
 type LapWithDriver = Lap & { drivers: { name: string } | null };
 type PendingLap = {
@@ -22,11 +25,20 @@ export default function EditRaceForm({ race }: { race: Race }) {
   const supabase = useMemo(() => createClientSupabase(), []);
   const [loading, setLoading] = useState(false);
   const [savingLaps, setSavingLaps] = useState(false);
+  const [fetchingWeather, setFetchingWeather] = useState(false);
   const [circuits, setCircuits] = useState<Circuit[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [existingLaps, setExistingLaps] = useState<LapWithDriver[]>([]);
   const [pendingLaps, setPendingLaps] = useState<PendingLap[]>([]);
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
+  const [weatherData, setWeatherData] = useState({
+    temp: race.weather_temp,
+    condition: race.weather_condition,
+    description: race.weather_description,
+    icon: race.weather_icon,
+    humidity: race.weather_humidity,
+    windSpeed: race.weather_wind_speed,
+  });
   const [formData, setFormData] = useState({
     race_date: toDateTimeLocal(race.race_date),
     status: race.status,
@@ -260,6 +272,58 @@ export default function EditRaceForm({ race }: { race: Race }) {
     );
   };
 
+  const handleFetchWeather = async () => {
+    setFetchingWeather(true);
+    try {
+      const result = await fetchRaceWeather(race.id);
+      
+      if (result.error) {
+        alert('Error fetching weather: ' + result.error);
+      } else if (result.weather) {
+        setWeatherData({
+          temp: result.weather.temp,
+          condition: result.weather.condition,
+          description: result.weather.description,
+          icon: result.weather.icon,
+          humidity: result.weather.humidity,
+          windSpeed: result.weather.windSpeed,
+        });
+        alert('Weather data fetched successfully!');
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setFetchingWeather(false);
+    }
+  };
+
+  const handleClearWeather = async () => {
+    if (!confirm('Are you sure you want to clear weather data?')) return;
+    
+    setFetchingWeather(true);
+    try {
+      const result = await clearRaceWeather(race.id);
+      
+      if (result.error) {
+        alert('Error clearing weather: ' + result.error);
+      } else {
+        setWeatherData({
+          temp: null,
+          condition: null,
+          description: null,
+          icon: null,
+          humidity: null,
+          windSpeed: null,
+        });
+        alert('Weather data cleared!');
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setFetchingWeather(false);
+    }
+  };
+
   const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
     text-soft-white placeholder-soft-white/50
     focus:outline-none focus:border-velocity-yellow focus:ring-2 focus:ring-velocity-yellow/40
@@ -387,6 +451,125 @@ export default function EditRaceForm({ race }: { race: Race }) {
               </Link>
             </div>
           </form>
+
+          {/* Weather Data Section */}
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Cloud className="text-aqua-neon" size={24} />
+              <h2 className="font-f1 text-xl font-bold text-soft-white">Weather Data</h2>
+            </div>
+            <div className="glass-card rounded-2xl p-6">
+              {weatherData.condition ? (
+                <div className="space-y-4">
+                  {/* Weather Display */}
+                  <div className="flex items-start gap-4 p-4 bg-aqua-neon/5 border border-aqua-neon/20 rounded-xl">
+                    {weatherData.icon && (
+                      <div className="flex-shrink-0">
+                        <Image
+                          src={getWeatherIconUrl(weatherData.icon)}
+                          alt={weatherData.description || weatherData.condition}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <p className="text-soft-white font-semibold">
+                          {getWeatherEmoji(weatherData.condition)} {weatherData.description || weatherData.condition}
+                        </p>
+                        {weatherData.temp !== null && (
+                          <p className="font-f1 text-3xl font-bold text-aqua-neon mt-1">
+                            {weatherData.temp}°C
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {weatherData.humidity !== null && (
+                          <div>
+                            <div className="flex items-center gap-1 text-soft-white/40">
+                              <Droplets size={12} />
+                              <span>Humidity</span>
+                            </div>
+                            <p className="text-soft-white font-medium">{weatherData.humidity}%</p>
+                          </div>
+                        )}
+                        {weatherData.windSpeed !== null && (
+                          <div>
+                            <div className="flex items-center gap-1 text-soft-white/40">
+                              <Wind size={12} />
+                              <span>Wind</span>
+                            </div>
+                            <p className="text-soft-white font-medium">{weatherData.windSpeed} m/s</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleFetchWeather}
+                      disabled={fetchingWeather}
+                      className="flex items-center gap-2 px-4 py-2 bg-aqua-neon/20 text-aqua-neon 
+                        border border-aqua-neon/30 rounded-xl font-medium 
+                        hover:bg-aqua-neon/30 transition-colors disabled:opacity-50"
+                    >
+                      {fetchingWeather ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw size={16} />
+                          Update Weather
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleClearWeather}
+                      disabled={fetchingWeather}
+                      className="flex items-center gap-2 px-4 py-2 bg-white/5 text-soft-white/60 
+                        border border-white/10 rounded-xl font-medium 
+                        hover:bg-white/10 hover:text-soft-white transition-colors disabled:opacity-50"
+                    >
+                      <Trash size={16} />
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-soft-white/40 mb-4">No weather data available</p>
+                  <button
+                    onClick={handleFetchWeather}
+                    disabled={fetchingWeather}
+                    className="flex items-center gap-2 px-4 py-2 bg-aqua-neon text-black 
+                      rounded-xl font-medium hover:bg-aqua-neon/90 transition-colors 
+                      disabled:opacity-50 mx-auto"
+                  >
+                    {fetchingWeather ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Fetching...
+                      </>
+                    ) : (
+                      <>
+                        <Cloud size={16} />
+                        Fetch Weather Data
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-soft-white/30 mt-3">
+                    Weather data will be fetched based on the circuit location and race date
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Lap Times and Driver Selection */}

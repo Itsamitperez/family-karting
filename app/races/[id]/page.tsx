@@ -1,8 +1,9 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trophy, Timer, ExternalLink, MapPin, Calendar, Flag, User, ChevronRight, Users } from 'lucide-react';
+import { ArrowLeft, Trophy, Timer, ExternalLink, MapPin, Calendar, Flag, User, ChevronRight, Users, Cloud, Droplets, Wind } from 'lucide-react';
 import { formatLapTime, formatDateTime, DEFAULT_DRIVER_IMAGE } from '@/lib/utils';
+import { getWeatherIconUrl, getWeatherEmoji } from '@/lib/weather';
 import Image from 'next/image';
 
 export default async function RaceDetailPage({ params }: { params: { id: string } }) {
@@ -164,6 +165,64 @@ export default async function RaceDetailPage({ params }: { params: { id: string 
               </div>
             )}
           </div>
+
+          {/* Weather Info */}
+          {race.weather_condition && (
+            <div className="glass-card rounded-xl p-4 mb-6 border border-aqua-neon/20 bg-aqua-neon/5">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  {race.weather_icon && (
+                    <Image
+                      src={getWeatherIconUrl(race.weather_icon)}
+                      alt={race.weather_description || race.weather_condition}
+                      width={64}
+                      height={64}
+                      className="w-16 h-16"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Cloud size={14} className="text-aqua-neon" />
+                      <p className="text-xs text-soft-white/40">Weather</p>
+                    </div>
+                    <p className="font-semibold text-soft-white">
+                      {getWeatherEmoji(race.weather_condition)} {race.weather_description || race.weather_condition}
+                    </p>
+                    {race.weather_temp !== null && (
+                      <p className="font-f1 text-2xl font-bold text-aqua-neon mt-1">
+                        {race.weather_temp}°C
+                      </p>
+                    )}
+                  </div>
+                  {race.weather_humidity !== null && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Droplets size={14} className="text-soft-white/40" />
+                        <p className="text-xs text-soft-white/40">Humidity</p>
+                      </div>
+                      <p className="font-semibold text-soft-white">{race.weather_humidity}%</p>
+                    </div>
+                  )}
+                  {race.weather_wind_speed !== null && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Wind size={14} className="text-soft-white/40" />
+                        <p className="text-xs text-soft-white/40">Wind Speed</p>
+                      </div>
+                      <p className="font-semibold text-soft-white">{race.weather_wind_speed} m/s</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {race.status !== 'done' && (
+                <p className="text-xs text-aqua-neon/60 mt-2">
+                  ⚡ Forecast for race date
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Description */}
           {race.description && (

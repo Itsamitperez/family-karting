@@ -30,6 +30,13 @@ export type Race = {
   circuit_id: string;
   description: string | null;
   attachment_url: string | null;
+  weather_temp: number | null;
+  weather_condition: string | null;
+  weather_description: string | null;
+  weather_icon: string | null;
+  weather_humidity: number | null;
+  weather_wind_speed: number | null;
+  weather_fetched_at: string | null;
   created_at: string;
   updated_at: string;
 };
