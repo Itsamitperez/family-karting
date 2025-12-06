@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Trophy, Medal, TrendingUp, Flag, X, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import { ScoreboardEntry } from '@/types/database';
@@ -21,6 +21,150 @@ interface ScoreboardClientProps {
   yearlyRaceResults?: Record<number, Record<string, RaceResult[]>>;
 }
 
+// Memoized Race Result Item Component
+const RaceResultItem = memo(({ result, onClose }: { result: RaceResult; onClose: () => void }) => {
+  const formattedDate = useMemo(
+    () => new Date(result.race_date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }),
+    [result.race_date]
+  );
+
+  return (
+    <Link
+      href={`/races/${result.race_id}`}
+      onClick={onClose}
+      className="group flex items-center justify-between p-4 rounded-xl
+        bg-deep-charcoal border border-white/10 hover:border-electric-red/30 transition-all"
+    >
+      <div className="flex items-center gap-4">
+        {/* Position Badge */}
+        <div className={`
+          w-10 h-10 rounded-xl flex items-center justify-center
+          font-f1 font-bold text-base shadow-lg
+          ${result.position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
+          ${result.position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
+          ${result.position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
+          ${!result.position || result.position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
+        `}>
+          {result.position || '-'}
+        </div>
+
+        <div>
+          <p className="text-base font-semibold text-soft-white group-hover:text-white transition-colors">
+            {result.circuit_name}
+          </p>
+          <p className="text-sm text-soft-white/50">
+            {formattedDate}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        {result.points !== null && (
+          <div className="text-right">
+            <p className="font-f1 text-lg font-bold text-electric-red">
+              +{result.points}
+            </p>
+            <p className="text-xs text-soft-white/40">pts</p>
+          </div>
+        )}
+        <ChevronRight size={18} className="text-soft-white/30 
+          group-hover:text-electric-red group-hover:translate-x-1 transition-all" />
+      </div>
+    </Link>
+  );
+});
+RaceResultItem.displayName = 'RaceResultItem';
+
+// Memoized Driver Entry Component
+const DriverEntry = memo(({ 
+  entry, 
+  position, 
+  hasValidPodium, 
+  onClick 
+}: { 
+  entry: ScoreboardEntry; 
+  position: number; 
+  hasValidPodium: boolean; 
+  onClick: () => void;
+}) => {
+  const animationDelay = useMemo(
+    () => (position - (hasValidPodium ? 4 : 1)) * 30,
+    [position, hasValidPodium]
+  );
+
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        w-full text-left glass-card rounded-2xl p-4 md:p-5
+        animate-slide-up opacity-0
+        hover:border-white/20 transition-all cursor-pointer
+        ${position <= 3 && !hasValidPodium
+          ? position === 1 
+            ? 'border-2 border-velocity-yellow/30' 
+            : position === 2 
+              ? 'border-2 border-gray-400/30' 
+              : 'border-2 border-amber-600/30'
+          : ''
+        }
+      `}
+      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: 'forwards' }}
+    >
+      <div className="flex items-center gap-4">
+        {/* Position */}
+        <div className={`
+          w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center
+          font-f1 font-bold text-lg
+          ${position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
+          ${position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
+          ${position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
+          ${position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
+        `}>
+          {position}
+        </div>
+
+        {/* Driver Info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-f1 text-lg md:text-xl font-bold text-soft-white truncate">
+            {entry.driver_name}
+          </h3>
+          <div className="flex items-center gap-4 mt-0.5">
+            <span className="text-xs md:text-sm text-soft-white/40 flex items-center gap-1">
+              <Flag size={12} />
+              {entry.races_count} races
+            </span>
+            {entry.wins > 0 && (
+              <span className="text-xs md:text-sm text-velocity-yellow flex items-center gap-1">
+                <Trophy size={12} />
+                {entry.wins} wins
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Points */}
+        <div className="text-right">
+          <p className={`
+            font-f1 text-2xl md:text-3xl font-bold
+            ${position === 1 ? 'text-velocity-yellow' : ''}
+            ${position === 2 ? 'text-gray-400' : ''}
+            ${position === 3 ? 'text-amber-600' : ''}
+            ${position > 3 ? 'text-electric-red' : ''}
+          `}>
+            {entry.total_points}
+          </p>
+          <p className="text-xs text-soft-white/40">pts</p>
+        </div>
+      </div>
+    </button>
+  );
+});
+DriverEntry.displayName = 'DriverEntry';
+
 export default function ScoreboardClient({
   overallLeaderboard,
   yearlyLeaderboards,
@@ -30,34 +174,71 @@ export default function ScoreboardClient({
   const [selectedYear, setSelectedYear] = useState<number | 'overall'>('overall');
   const [selectedDriver, setSelectedDriver] = useState<ScoreboardEntry | null>(null);
 
-  const currentLeaderboard =
-    selectedYear === 'overall'
+  // Memoize current leaderboard
+  const currentLeaderboard = useMemo(
+    () => selectedYear === 'overall'
       ? overallLeaderboard
-      : yearlyLeaderboards[selectedYear] || [];
+      : yearlyLeaderboards[selectedYear] || [],
+    [selectedYear, overallLeaderboard, yearlyLeaderboards]
+  );
 
-  const years = Object.keys(yearlyLeaderboards)
-    .map(Number)
-    .sort((a, b) => b - a);
+  // Memoize years array
+  const years = useMemo(
+    () => Object.keys(yearlyLeaderboards)
+      .map(Number)
+      .sort((a, b) => b - a),
+    [yearlyLeaderboards]
+  );
 
-  // Get race results for selected driver
-  const getDriverRaceResults = (): RaceResult[] => {
+  // Memoize sorted race results for selected driver (pre-sorted to avoid re-sorting on every render)
+  const driverRaceResults = useMemo(() => {
     if (!selectedDriver) return [];
     
-    if (selectedYear === 'overall') {
-      return overallRaceResults[selectedDriver.driver_id] || [];
-    }
+    const results = selectedYear === 'overall'
+      ? overallRaceResults[selectedDriver.driver_id] || []
+      : yearlyRaceResults[selectedYear]?.[selectedDriver.driver_id] || [];
     
-    return yearlyRaceResults[selectedYear]?.[selectedDriver.driver_id] || [];
-  };
+    // Sort once and memoize - sort by date descending
+    return [...results].sort(
+      (a, b) => new Date(b.race_date).getTime() - new Date(a.race_date).getTime()
+    );
+  }, [selectedDriver, selectedYear, overallRaceResults, yearlyRaceResults]);
 
-  const driverRaceResults = getDriverRaceResults();
+  // Memoize podium
+  const podium = useMemo(() => currentLeaderboard.slice(0, 3), [currentLeaderboard]);
+  const hasValidPodium = useMemo(() => podium.length >= 3, [podium.length]);
 
-  // Get top 3 for podium
-  const podium = currentLeaderboard.slice(0, 3);
-  const hasValidPodium = podium.length >= 3;
+  // Memoize remaining leaderboard
+  const remainingLeaderboard = useMemo(
+    () => currentLeaderboard.slice(3),
+    [currentLeaderboard]
+  );
 
-  // Remaining drivers (after top 3)
-  const remainingLeaderboard = currentLeaderboard.slice(3);
+  // Memoize callbacks
+  const handleYearChange = useCallback((year: number | 'overall') => {
+    setSelectedYear(year);
+    setSelectedDriver(null); // Close modal when changing year
+  }, []);
+
+  const handleDriverSelect = useCallback((driver: ScoreboardEntry) => {
+    setSelectedDriver(driver);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedDriver(null);
+  }, []);
+
+  // Prevent body scroll when modal is open (mobile optimization)
+  useEffect(() => {
+    if (selectedDriver) {
+      // Lock body scroll
+      document.body.style.overflow = 'hidden';
+      return () => {
+        // Unlock body scroll
+        document.body.style.overflow = '';
+      };
+    }
+  }, [selectedDriver]);
 
   return (
     <div>
@@ -66,7 +247,7 @@ export default function ScoreboardClient({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-soft-white/40 mr-2">Filter by:</span>
           <button
-            onClick={() => setSelectedYear('overall')}
+            onClick={() => handleYearChange('overall')}
             className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
               selectedYear === 'overall'
                 ? 'bg-electric-red text-white shadow-glow-red'
@@ -78,7 +259,7 @@ export default function ScoreboardClient({
           {years.map((year) => (
             <button
               key={year}
-              onClick={() => setSelectedYear(year)}
+              onClick={() => handleYearChange(year)}
               className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
                 selectedYear === year
                   ? 'bg-electric-red text-white shadow-glow-red'
@@ -105,7 +286,7 @@ export default function ScoreboardClient({
           <div className="grid grid-cols-3 gap-3 md:gap-6 items-end">
             {/* 2nd Place */}
             <button
-              onClick={() => setSelectedDriver(podium[1])}
+              onClick={() => handleDriverSelect(podium[1])}
               className="glass-card rounded-3xl p-4 md:p-6 text-center hover:border-gray-400/30 
                 transition-all cursor-pointer group"
             >
@@ -132,7 +313,7 @@ export default function ScoreboardClient({
 
             {/* 1st Place */}
             <button
-              onClick={() => setSelectedDriver(podium[0])}
+              onClick={() => handleDriverSelect(podium[0])}
               className="glass-card rounded-3xl p-4 md:p-8 text-center 
                 border-2 border-velocity-yellow/30 relative overflow-hidden
                 hover:border-velocity-yellow/50 transition-all cursor-pointer group"
@@ -162,7 +343,7 @@ export default function ScoreboardClient({
 
             {/* 3rd Place */}
             <button
-              onClick={() => setSelectedDriver(podium[2])}
+              onClick={() => handleDriverSelect(podium[2])}
               className="glass-card rounded-3xl p-4 md:p-6 text-center hover:border-amber-600/30 
                 transition-all cursor-pointer group"
             >
@@ -212,71 +393,13 @@ export default function ScoreboardClient({
               const position = hasValidPodium ? index + 4 : index + 1;
               
               return (
-                <button
+                <DriverEntry
                   key={entry.driver_id}
-                  onClick={() => setSelectedDriver(entry)}
-                  className={`
-                    w-full text-left glass-card rounded-2xl p-4 md:p-5
-                    animate-slide-up opacity-0
-                    hover:border-white/20 transition-all cursor-pointer
-                    ${position <= 3 && !hasValidPodium
-                      ? position === 1 
-                        ? 'border-2 border-velocity-yellow/30' 
-                        : position === 2 
-                          ? 'border-2 border-gray-400/30' 
-                          : 'border-2 border-amber-600/30'
-                      : ''
-                    }
-                  `}
-                  style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'forwards' }}
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Position */}
-                    <div className={`
-                      w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center
-                      font-f1 font-bold text-lg
-                      ${position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
-                      ${position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
-                      ${position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
-                      ${position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
-                    `}>
-                      {position}
-                    </div>
-
-                    {/* Driver Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-f1 text-lg md:text-xl font-bold text-soft-white truncate">
-                        {entry.driver_name}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-0.5">
-                        <span className="text-xs md:text-sm text-soft-white/40 flex items-center gap-1">
-                          <Flag size={12} />
-                          {entry.races_count} races
-                        </span>
-                        {entry.wins > 0 && (
-                          <span className="text-xs md:text-sm text-velocity-yellow flex items-center gap-1">
-                            <Trophy size={12} />
-                            {entry.wins} wins
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Points */}
-                    <div className="text-right">
-                      <p className={`
-                        font-f1 text-2xl md:text-3xl font-bold
-                        ${position === 1 ? 'text-velocity-yellow' : ''}
-                        ${position === 2 ? 'text-gray-400' : ''}
-                        ${position === 3 ? 'text-amber-600' : ''}
-                        ${position > 3 ? 'text-electric-red' : ''}
-                      `}>
-                        {entry.total_points}
-                      </p>
-                      <p className="text-xs text-soft-white/40">pts</p>
-                    </div>
-                  </div>
-                </button>
+                  entry={entry}
+                  position={position}
+                  hasValidPodium={hasValidPodium}
+                  onClick={() => handleDriverSelect(entry)}
+                />
               );
             })}
           </div>
@@ -287,7 +410,7 @@ export default function ScoreboardClient({
       {selectedDriver && (
         <div 
           className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
-          onClick={() => setSelectedDriver(null)}
+          onClick={handleCloseModal}
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
@@ -297,7 +420,8 @@ export default function ScoreboardClient({
             className="relative w-full max-w-lg max-h-[80vh] overflow-hidden
               bg-steel-gray rounded-t-3xl md:rounded-3xl
               border border-white/10 shadow-2xl
-              animate-slide-up"
+              animate-slide-up
+              will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -312,7 +436,7 @@ export default function ScoreboardClient({
                   </h2>
                 </div>
                 <button
-                  onClick={() => setSelectedDriver(null)}
+                  onClick={handleCloseModal}
                   className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center
                     hover:bg-white/10 transition-colors"
                 >
@@ -344,7 +468,7 @@ export default function ScoreboardClient({
             </div>
 
             {/* Race Results List */}
-            <div className="p-4 md:p-6 overflow-y-auto max-h-[50vh]">
+            <div className="p-4 md:p-6 overflow-y-auto max-h-[50vh] overscroll-contain">
               <div className="flex items-center gap-2 mb-4">
                 <Calendar size={16} className="text-cyber-purple" />
                 <h3 className="font-semibold text-soft-white">Race History</h3>
@@ -352,57 +476,13 @@ export default function ScoreboardClient({
 
               {driverRaceResults.length > 0 ? (
                 <div className="space-y-2">
-                  {driverRaceResults
-                    .sort((a, b) => new Date(b.race_date).getTime() - new Date(a.race_date).getTime())
-                    .map((result, index) => (
-                      <Link
-                        key={`${result.race_id}-${index}`}
-                        href={`/races/${result.race_id}`}
-                        onClick={() => setSelectedDriver(null)}
-                        className="group flex items-center justify-between p-4 rounded-xl
-                          bg-deep-charcoal border border-white/10 hover:border-electric-red/30 transition-all"
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Position Badge - Stunning gradient style */}
-                          <div className={`
-                            w-10 h-10 rounded-xl flex items-center justify-center
-                            font-f1 font-bold text-base shadow-lg
-                            ${result.position === 1 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' : ''}
-                            ${result.position === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' : ''}
-                            ${result.position === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white' : ''}
-                            ${!result.position || result.position > 3 ? 'bg-white/10 text-soft-white/60' : ''}
-                          `}>
-                            {result.position || '-'}
-                          </div>
-
-                          <div>
-                            <p className="text-base font-semibold text-soft-white group-hover:text-white transition-colors">
-                              {result.circuit_name}
-                            </p>
-                            <p className="text-sm text-soft-white/50">
-                              {new Date(result.race_date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                          {result.points !== null && (
-                            <div className="text-right">
-                              <p className="font-f1 text-lg font-bold text-electric-red">
-                                +{result.points}
-                              </p>
-                              <p className="text-xs text-soft-white/40">pts</p>
-                            </div>
-                          )}
-                          <ChevronRight size={18} className="text-soft-white/30 
-                            group-hover:text-electric-red group-hover:translate-x-1 transition-all" />
-                        </div>
-                      </Link>
-                    ))}
+                  {driverRaceResults.map((result) => (
+                    <RaceResultItem 
+                      key={`${result.race_id}-${result.race_date}`}
+                      result={result} 
+                      onClose={handleCloseModal}
+                    />
+                  ))}
                 </div>
               ) : (
                 <p className="text-center text-soft-white/40 py-8">
@@ -415,7 +495,7 @@ export default function ScoreboardClient({
             <div className="sticky bottom-0 bg-steel-gray border-t border-white/10 p-4">
               <Link
                 href={`/drivers/${selectedDriver.driver_id}`}
-                onClick={() => setSelectedDriver(null)}
+                onClick={handleCloseModal}
                 className="block w-full py-3 rounded-xl bg-electric-red text-white 
                   font-semibold text-center hover:bg-electric-red-light transition-colors"
               >

@@ -1,7 +1,18 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { Trophy } from 'lucide-react';
 import { ScoreboardEntry } from '@/types/database';
-import ScoreboardClient from '@/components/ScoreboardClient';
+import dynamic from 'next/dynamic';
+
+// Dynamically import ScoreboardClient to reduce initial bundle size
+const ScoreboardClient = dynamic(() => import('@/components/ScoreboardClient'), {
+  loading: () => (
+    <div className="glass-card rounded-3xl p-12 text-center">
+      <Trophy className="w-16 h-16 mx-auto mb-4 text-soft-white/20 animate-pulse" />
+      <p className="text-soft-white/50 text-lg">Loading scoreboard...</p>
+    </div>
+  ),
+  ssr: true, // Still render on server for SEO
+});
 
 interface RaceResult {
   race_id: string;
@@ -12,20 +23,30 @@ interface RaceResult {
   circuit_name: string;
 }
 
+// Cache this page for 60 seconds (ISR - Incremental Static Regeneration)
+export const revalidate = 60;
+
 export default async function ScoreboardPage() {
   const supabase = await createServerSupabase();
 
-  // Get all race drivers with points and race details (only from actual races, not testing)
+  // Optimized query: only select needed fields (reduces payload size)
   const { data: raceDrivers } = await supabase
     .from('race_drivers')
-    .select('*, drivers(name, id), races(id, race_date, race_type, circuits(name))')
+    .select(`
+      driver_id,
+      position,
+      points,
+      race_id,
+      drivers(name, id),
+      races(id, race_date, race_type, circuits(name))
+    `)
     .not('points', 'is', null);
 
   // Filter out testing races - only count actual races for the scoreboard
   const actualRaceDrivers = raceDrivers?.filter((rd: any) => {
     // Include races where race_type is 'race' or null/undefined (for backwards compatibility with existing data)
     return rd.races?.race_type !== 'testing';
-  });
+  }) || [];
 
   // Aggregate points by driver
   const driverStats = new Map<string, ScoreboardEntry>();

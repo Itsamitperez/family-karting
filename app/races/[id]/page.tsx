@@ -1,8 +1,9 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trophy, Timer, ExternalLink, MapPin, Calendar, Flag, User, ChevronRight } from 'lucide-react';
-import { formatLapTime, formatDateTime } from '@/lib/utils';
+import { ArrowLeft, Trophy, Timer, ExternalLink, MapPin, Calendar, Flag, User, ChevronRight, Users } from 'lucide-react';
+import { formatLapTime, formatDateTime, DEFAULT_DRIVER_IMAGE } from '@/lib/utils';
+import Image from 'next/image';
 
 export default async function RaceDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createServerSupabase();
@@ -17,12 +18,44 @@ export default async function RaceDetailPage({ params }: { params: { id: string 
     notFound();
   }
 
-  // Get race results (drivers with positions and points)
+  // Get race drivers (results for done races, or competing drivers for scheduled/planned)
   const { data: raceDrivers } = await supabase
     .from('race_drivers')
     .select('*, drivers(*)')
     .eq('race_id', race.id)
-    .order('position', { ascending: true });
+    .order('position', { ascending: true, nullsFirst: false });
+
+  // For scheduled/planned races, get race counts and sort by number of races
+  let competingDrivers = raceDrivers;
+  let driverRaceCounts = new Map<string, number>();
+  
+  if (race.status !== 'done' && raceDrivers && raceDrivers.length > 0) {
+    // Get race counts for each driver
+    const driverIds = raceDrivers.map((rd: any) => rd.driver_id);
+    const { data: raceCounts } = await supabase
+      .from('race_drivers')
+      .select('driver_id')
+      .in('driver_id', driverIds);
+
+    // Count races per driver
+    raceCounts?.forEach((rc: any) => {
+      driverRaceCounts.set(rc.driver_id, (driverRaceCounts.get(rc.driver_id) || 0) + 1);
+    });
+
+    // Sort by race count (descending), then by name
+    competingDrivers = [...raceDrivers].sort((a: any, b: any) => {
+      const countA = driverRaceCounts.get(a.driver_id) || 0;
+      const countB = driverRaceCounts.get(b.driver_id) || 0;
+      if (countB !== countA) {
+        return countB - countA; // Most races first
+      }
+      // If same race count, sort by name
+      if (a.drivers?.name && b.drivers?.name) {
+        return a.drivers.name.localeCompare(b.drivers.name);
+      }
+      return 0;
+    });
+  }
 
   // Get all laps for this race
   const { data: laps } = await supabase
@@ -152,6 +185,61 @@ export default async function RaceDetailPage({ params }: { params: { id: string 
             </a>
           )}
         </div>
+
+        {/* Competing Drivers for Scheduled/Planned Races */}
+        {(race.status === 'scheduled' || race.status === 'planned') && competingDrivers && competingDrivers.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center gap-2 mb-6">
+              <Users size={18} className="text-velocity-yellow" />
+              <h2 className="font-f1 text-xl font-bold text-soft-white">Competing Drivers</h2>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {competingDrivers.map((rd: any, index: number) => {
+                const raceCount = driverRaceCounts.get(rd.driver_id) || 0;
+                return (
+                  <Link
+                    key={rd.driver_id}
+                    href={`/drivers/${rd.driver_id}`}
+                    className="group block glass-card rounded-xl p-4 
+                      hover:bg-white/5 transition-all animate-slide-up opacity-0
+                      border border-white/10"
+                    style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-velocity-yellow/30 
+                        bg-gradient-to-br from-velocity-yellow/20 to-velocity-yellow/10 flex-shrink-0">
+                        {rd.drivers?.photo_url ? (
+                          <Image
+                            src={rd.drivers.photo_url}
+                            alt={rd.drivers.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <User size={20} className="text-velocity-yellow" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-soft-white group-hover:text-white transition-colors truncate">
+                          {rd.drivers?.name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-soft-white/40 mt-0.5">
+                          {raceCount} race{raceCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-soft-white/30 flex-shrink-0
+                        group-hover:text-velocity-yellow group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Race Results */}
         {race.status === 'done' && raceDrivers && raceDrivers.length > 0 && (

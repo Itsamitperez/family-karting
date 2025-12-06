@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Timer, Save, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Timer, Save, RefreshCw, Loader2, Users, Check } from 'lucide-react';
 import { Race, Circuit, Driver, Lap } from '@/types/database';
 import { formatLapTime, getPointsForPosition, toDateTimeLocal } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -26,6 +26,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [existingLaps, setExistingLaps] = useState<LapWithDriver[]>([]);
   const [pendingLaps, setPendingLaps] = useState<PendingLap[]>([]);
+  const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     race_date: toDateTimeLocal(race.race_date),
     status: race.status,
@@ -37,14 +38,18 @@ export default function EditRaceForm({ race }: { race: Race }) {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [circuitsRes, driversRes, lapsRes] = await Promise.all([
+      const [circuitsRes, driversRes, lapsRes, raceDriversRes] = await Promise.all([
         supabase.from('circuits').select('*').order('name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('laps').select('*, drivers(name)').eq('race_id', race.id).order('lap_time'),
+        supabase.from('race_drivers').select('driver_id').eq('race_id', race.id),
       ]);
       if (circuitsRes.data) setCircuits(circuitsRes.data);
       if (driversRes.data) setDrivers(driversRes.data);
       if (lapsRes.data) setExistingLaps(lapsRes.data as LapWithDriver[]);
+      if (raceDriversRes.data) {
+        setSelectedDrivers(raceDriversRes.data.map((rd: any) => rd.driver_id));
+      }
     };
     fetchData();
   }, [race.id, supabase]);
@@ -69,6 +74,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
       if (error) throw error;
 
       await savePendingLaps();
+      await saveSelectedDrivers();
 
       // Only calculate results for actual races, not testing sessions
       if (formData.status === 'done' && formData.race_type === 'race') {
@@ -193,6 +199,67 @@ export default function EditRaceForm({ race }: { race: Race }) {
     }
   };
 
+  const saveSelectedDrivers = async () => {
+    // Only save driver selection for scheduled/planned races
+    if (formData.status !== 'scheduled' && formData.status !== 'planned') {
+      return;
+    }
+
+    // Get current race_drivers for this race
+    const { data: currentRaceDrivers } = await supabase
+      .from('race_drivers')
+      .select('driver_id')
+      .eq('race_id', race.id);
+
+    const currentDriverIds = new Set(currentRaceDrivers?.map((rd: any) => rd.driver_id) || []);
+    const selectedDriverIds = new Set(selectedDrivers);
+
+    // Find drivers to add
+    const driversToAdd = selectedDrivers.filter(driverId => !currentDriverIds.has(driverId));
+    // Find drivers to remove (only those without positions/points, i.e., scheduled/planned entries)
+    const driversToRemove = Array.from(currentDriverIds).filter(
+      driverId => !selectedDriverIds.has(driverId)
+    );
+
+    // Remove drivers that are no longer selected
+    if (driversToRemove.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('race_drivers')
+        .delete()
+        .eq('race_id', race.id)
+        .in('driver_id', driversToRemove)
+        .is('position', null);
+      
+      if (deleteError) throw deleteError;
+    }
+
+    // Add new selected drivers
+    if (driversToAdd.length > 0) {
+      const driversToInsert = driversToAdd.map(driverId => ({
+        race_id: race.id,
+        driver_id: driverId,
+        position: null,
+        points: null,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('race_drivers')
+        .upsert(driversToInsert, {
+          onConflict: 'race_id,driver_id',
+        });
+
+      if (insertError) throw insertError;
+    }
+  };
+
+  const toggleDriver = (driverId: string) => {
+    setSelectedDrivers(prev => 
+      prev.includes(driverId)
+        ? prev.filter(id => id !== driverId)
+        : [...prev, driverId]
+    );
+  };
+
   const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
     text-soft-white placeholder-soft-white/50
     focus:outline-none focus:border-velocity-yellow focus:ring-2 focus:ring-velocity-yellow/40
@@ -212,7 +279,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Race Details Form */}
-        <div>
+        <div className="space-y-6">
           <h2 className="font-f1 text-xl font-bold text-soft-white mb-4">Race Details</h2>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="glass-card rounded-2xl p-6 space-y-6">
@@ -322,8 +389,52 @@ export default function EditRaceForm({ race }: { race: Race }) {
           </form>
         </div>
 
-        {/* Lap Times Section */}
-        <div>
+        {/* Right Column: Lap Times and Driver Selection */}
+        <div className="space-y-6">
+          {/* Driver Selection Section - Show when scheduled/planned */}
+          {(formData.status === 'scheduled' || formData.status === 'planned') && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="text-velocity-yellow" size={24} />
+                <h2 className="font-f1 text-xl font-bold text-soft-white">Competing Drivers</h2>
+              </div>
+              <div className="glass-card rounded-2xl p-6">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {drivers.length === 0 ? (
+                    <p className="text-soft-white/40 text-sm text-center py-4">No drivers available</p>
+                  ) : (
+                    drivers.map((driver) => {
+                      const isSelected = selectedDrivers.includes(driver.id);
+                      return (
+                        <div
+                          key={driver.id}
+                          onClick={() => toggleDriver(driver.id)}
+                          className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-white/5"
+                        >
+                          <div className={`
+                            w-5 h-5 rounded border-2 flex items-center justify-center transition-all
+                            ${isSelected 
+                              ? 'bg-velocity-yellow border-velocity-yellow' 
+                              : 'border-white/30 bg-transparent'
+                            }
+                          `}>
+                            {isSelected && <Check size={14} className="text-black" strokeWidth={3} />}
+                          </div>
+                          <span className="text-soft-white font-medium">{driver.name}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <p className="text-xs text-soft-white/40 mt-4">
+                  {selectedDrivers.length} driver{selectedDrivers.length !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Lap Times Section */}
+          <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-f1 text-xl font-bold text-soft-white flex items-center gap-2">
               <Timer className="text-electric-red" size={24} />
@@ -453,6 +564,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
               </p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

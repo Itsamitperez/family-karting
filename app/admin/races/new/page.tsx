@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientSupabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Timer, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Timer, Save, Loader2, Users, Check } from 'lucide-react';
 import { Circuit, Driver } from '@/types/database';
 import { formatLapTime, getPointsForPosition, getCurrentDateTimeLocal } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -24,6 +24,7 @@ export default function NewRacePage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [raceId, setRaceId] = useState<string | null>(null);
   const [pendingLaps, setPendingLaps] = useState<PendingLap[]>([]);
+  const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     race_date: getCurrentDateTimeLocal(),
     status: 'planned' as 'done' | 'scheduled' | 'planned',
@@ -61,6 +62,25 @@ export default function NewRacePage() {
 
       if (error) throw error;
       setRaceId(data.id);
+      
+      // Save selected drivers if race is scheduled/planned
+      if ((formData.status === 'scheduled' || formData.status === 'planned') && selectedDrivers.length > 0) {
+        const driversToInsert = selectedDrivers.map(driverId => ({
+          race_id: data.id,
+          driver_id: driverId,
+          position: null,
+          points: null,
+        }));
+        
+        const { error: driversError } = await supabase
+          .from('race_drivers')
+          .insert(driversToInsert);
+        
+        if (driversError) {
+          console.error('Error saving drivers:', driversError);
+        }
+      }
+      
       addLapRow();
     } catch (err: any) {
       alert('Error creating race: ' + err.message);
@@ -102,6 +122,28 @@ export default function NewRacePage() {
 
       const { error: lapsError } = await supabase.from('laps').insert(lapsToInsert);
       if (lapsError) throw lapsError;
+
+      // Save selected drivers if race is still scheduled/planned and not already saved
+      if ((formData.status === 'scheduled' || formData.status === 'planned') && selectedDrivers.length > 0 && raceId) {
+        const { data: existingRaceDrivers } = await supabase
+          .from('race_drivers')
+          .select('driver_id')
+          .eq('race_id', raceId);
+        
+        const existingDriverIds = new Set(existingRaceDrivers?.map((rd: any) => rd.driver_id) || []);
+        const driversToAdd = selectedDrivers.filter(driverId => !existingDriverIds.has(driverId));
+        
+        if (driversToAdd.length > 0) {
+          const driversToInsert = driversToAdd.map(driverId => ({
+            race_id: raceId,
+            driver_id: driverId,
+            position: null,
+            points: null,
+          }));
+          
+          await supabase.from('race_drivers').insert(driversToInsert);
+        }
+      }
 
       // Only calculate results for actual races, not testing sessions
       if (formData.status === 'done' && formData.race_type === 'race') {
@@ -150,6 +192,14 @@ export default function NewRacePage() {
 
   const skipLaps = () => {
     router.push('/admin/races');
+  };
+
+  const toggleDriver = (driverId: string) => {
+    setSelectedDrivers(prev => 
+      prev.includes(driverId)
+        ? prev.filter(id => id !== driverId)
+        : [...prev, driverId]
+    );
   };
 
   const inputClass = `w-full px-4 py-3 bg-[#1a1a2e] border border-white/30 rounded-xl 
@@ -249,6 +299,45 @@ export default function NewRacePage() {
               folder="races"
               accentColor="velocity-yellow"
             />
+
+            {/* Driver Selection for Scheduled/Planned Races */}
+            {(formData.status === 'scheduled' || formData.status === 'planned') && (
+              <div>
+                <label className="block text-sm font-medium text-soft-white/70 mb-2">
+                  Competing Drivers
+                </label>
+                <div className="glass-card rounded-xl p-4 border border-white/10 max-h-64 overflow-y-auto space-y-2">
+                  {drivers.length === 0 ? (
+                    <p className="text-soft-white/40 text-sm">No drivers available</p>
+                  ) : (
+                    drivers.map((driver) => {
+                      const isSelected = selectedDrivers.includes(driver.id);
+                      return (
+                        <div
+                          key={driver.id}
+                          onClick={() => toggleDriver(driver.id)}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          <div className={`
+                            w-5 h-5 rounded border-2 flex items-center justify-center transition-all
+                            ${isSelected 
+                              ? 'bg-velocity-yellow border-velocity-yellow' 
+                              : 'border-white/30 bg-transparent'
+                            }
+                          `}>
+                            {isSelected && <Check size={14} className="text-black" strokeWidth={3} />}
+                          </div>
+                          <span className="text-soft-white">{driver.name}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <p className="text-xs text-soft-white/40 mt-2">
+                  Select which drivers will compete in this race
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-4">
