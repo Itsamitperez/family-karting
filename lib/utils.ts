@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { OperatingHours } from '@/types/database';
-import ct from 'city-timezones';
+import tzlookup from 'tz-lookup';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -69,11 +69,8 @@ export const DEFAULT_DRIVER_IMAGE = 'https://minpscbyyaqnfzrigfvl.supabase.co/st
  */
 function getLocalTime(lat: number, lon: number): { date: Date; dayIndex: number; hours: number; minutes: number } {
   try {
-    // Get timezone from coordinates using city-timezones
-    const lookup = ct.lookupViaCoords(lat, lon);
-    
-    // Get the timezone (e.g., "America/New_York", "Asia/Tokyo")
-    const timezone = lookup && lookup.length > 0 ? lookup[0].timezone : 'UTC';
+    // Get timezone from coordinates using tz-lookup
+    const timezone = tzlookup(lat, lon) || 'UTC';
     
     // Get current time in that timezone
     const formatter = new Intl.DateTimeFormat('en-US', {
