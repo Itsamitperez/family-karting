@@ -44,7 +44,8 @@ export function formatDateTimeShort(date: string | Date): string {
 // Convert ISO string to datetime-local input format
 export function toDateTimeLocal(date: string | Date): string {
   const d = new Date(date);
-  return d.toISOString().slice(0, 16);
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 }
 
 // Get current datetime in local format for default values

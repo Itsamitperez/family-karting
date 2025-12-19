@@ -1,7 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, ExternalLink, Timer, Flag, Calendar, ChevronRight, Trophy, Clock, CloudRain } from 'lucide-react';
+import { ArrowLeft, MapPin, ExternalLink, Timer, Flag, Calendar, ChevronRight, Trophy, Clock, CloudRain, Navigation } from 'lucide-react';
 import { formatLapTime, formatDateTime, isCircuitOpen, getTodayOperatingHours } from '@/lib/utils';
 import { fetchCurrentWeather } from '@/lib/actions/weather';
 import { getWeatherEmoji } from '@/lib/weather';
@@ -144,6 +144,49 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                     </span>
                   </div>
                 )}
+                {(circuit.location_lat && circuit.location_long) || circuit.url ? (
+                  <>
+                    <div className="w-px h-4 bg-white/20 self-center hidden sm:block" />
+                    <div className="flex gap-4 w-full sm:w-auto">
+                      {circuit.location_lat && circuit.location_long && (
+                        <>
+                          <a
+                            href={`https://waze.com/ul?ll=${circuit.location_lat},${circuit.location_long}&navigate=yes`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-[#33ccff] hover:text-[#33ccff]/80 transition-colors"
+                            title="Navigate with Waze"
+                          >
+                            <Navigation size={16} />
+                            <span className="font-medium">Waze</span>
+                          </a>
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${circuit.location_lat},${circuit.location_long}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-green-lime hover:text-green-lime/80 transition-colors"
+                            title="Navigate with Google Maps"
+                          >
+                            <Navigation size={16} />
+                            <span className="font-medium">Maps</span>
+                          </a>
+                        </>
+                      )}
+                      {circuit.url && (
+                        <a
+                          href={circuit.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-cyber-purple hover:text-cyber-purple/80 transition-colors"
+                          title="Visit Circuit Website"
+                        >
+                          <ExternalLink size={16} />
+                          <span className="font-medium">Website</span>
+                        </a>
+                      )}
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
 
@@ -230,21 +273,6 @@ export default async function CircuitDetailPage({ params }: { params: { id: stri
                   })}
                 </div>
               </div>
-            )}
-
-            {/* External Link */}
-            {circuit.url && (
-              <a
-                href={circuit.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
-                  bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/30
-                  hover:bg-cyber-purple/30 transition-all"
-              >
-                Visit Circuit Website
-                <ExternalLink size={16} />
-              </a>
             )}
           </div>
         </div>

@@ -71,8 +71,35 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
     }
   });
 
+  // Get track records for each circuit where the driver has a personal best
+  const circuitIds = Array.from(personalBestsByCircuit.keys());
+  const { data: trackRecords } = await supabase
+    .from('laps')
+    .select('races(circuit_id), lap_time')
+    .in('races.circuit_id', circuitIds)
+    .order('lap_time', { ascending: true });
+
+  // Create a map of circuit_id to fastest lap time
+  const trackRecordsByCircuit = new Map<string, number>();
+  trackRecords?.forEach((lap: any) => {
+    const circuitId = lap.races?.circuit_id;
+    if (circuitId && !trackRecordsByCircuit.has(circuitId)) {
+      trackRecordsByCircuit.set(circuitId, lap.lap_time);
+    }
+  });
+
   const personalBests = Array.from(personalBestsByCircuit.values())
+    .map(pb => ({
+      ...pb,
+      track_record: trackRecordsByCircuit.get(pb.circuit_id) || null,
+      gap_to_record: trackRecordsByCircuit.get(pb.circuit_id) 
+        ? pb.best_time - trackRecordsByCircuit.get(pb.circuit_id)!
+        : null
+    }))
     .sort((a, b) => a.circuit_name.localeCompare(b.circuit_name));
+
+  // Count track records held by this driver
+  const trackRecordsCount = personalBests.filter(pb => pb.gap_to_record === 0).length;
 
   return (
     <div className="min-h-screen">
@@ -138,15 +165,13 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
                   <p className="font-f1 text-2xl font-bold text-soft-white">{raceDrivers?.length || 0}</p>
                   <p className="text-xs text-soft-white/40">Races</p>
                 </div>
-                {bestLap && (
-                  <div className="bg-aqua-neon/10 border border-aqua-neon/20 rounded-xl p-3 text-center">
-                    <Timer size={18} className="mx-auto mb-1 text-aqua-neon" />
-                    <p className="font-f1 text-lg font-bold text-aqua-neon">
-                      {formatLapTime(bestLap.lap_time)}
-                    </p>
-                    <p className="text-xs text-soft-white/40">Best Lap</p>
-                  </div>
-                )}
+                <div className="bg-aqua-neon/10 border border-aqua-neon/20 rounded-xl p-3 text-center">
+                  <Timer size={18} className="mx-auto mb-1 text-aqua-neon" />
+                  <p className="font-f1 text-2xl font-bold text-aqua-neon">
+                    {trackRecordsCount}
+                  </p>
+                  <p className="text-xs text-soft-white/40">Track Records</p>
+                </div>
               </div>
             </div>
           </div>
@@ -179,55 +204,99 @@ export default async function DriverDetailPage({ params }: { params: { id: strin
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {personalBests.map((pb, index) => (
-                    <Link
-                      key={pb.circuit_id}
-                      href={`/circuits/${pb.circuit_id}`}
-                      className="group glass-card rounded-2xl overflow-hidden
-                        animate-slide-up opacity-0"
-                      style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
-                    >
-                      {/* Circuit Background */}
-                      <div className="relative h-24">
-                        {pb.circuit_photo ? (
-                          <img
-                            src={pb.circuit_photo}
-                            alt={pb.circuit_name}
-                            className="w-full h-full object-cover opacity-50 group-hover:opacity-70 
-                              group-hover:scale-105 transition-all duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-cyber-purple/20 to-aqua-neon/10" />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-deep-charcoal via-deep-charcoal/60 to-transparent" />
-                        
-                        {/* Content Overlay */}
-                        <div className="absolute inset-0 p-4 flex items-end justify-between">
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <MapPin size={12} className="text-soft-white/50" />
-                              <p className="text-sm font-semibold text-soft-white group-hover:text-white transition-colors">
+                  {personalBests.map((pb, index) => {
+                    const isTrackRecord = pb.gap_to_record === 0;
+                    const hasGap = pb.gap_to_record !== null && pb.gap_to_record > 0;
+                    
+                    return (
+                      <Link
+                        key={pb.circuit_id}
+                        href={`/circuits/${pb.circuit_id}`}
+                        className={`group glass-card rounded-xl overflow-hidden
+                          animate-slide-up opacity-0 transition-all duration-300
+                          ${isTrackRecord ? 'ring-1 ring-velocity-yellow/50' : 'hover:ring-1 hover:ring-white/20'}`}
+                        style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
+                      >
+                        {/* Circuit Header with Photo */}
+                        <div className="relative h-12">
+                          {pb.circuit_photo ? (
+                            <img
+                              src={pb.circuit_photo}
+                              alt={pb.circuit_name}
+                              className="w-full h-full object-cover opacity-40 group-hover:opacity-60 
+                                group-hover:scale-105 transition-all duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-cyber-purple/20 to-aqua-neon/10" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-deep-charcoal via-deep-charcoal/80 to-transparent" />
+                          
+                          <div className="absolute inset-0 px-3 flex items-center">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <MapPin size={12} className="text-soft-white/60 shrink-0" />
+                              <p className="text-sm font-semibold text-soft-white group-hover:text-white transition-colors truncate">
                                 {pb.circuit_name}
                               </p>
+                              {isTrackRecord && (
+                                <span className="bg-velocity-yellow text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                                  RECORD
+                                </span>
+                              )}
                             </div>
-                            <p className="text-xs text-soft-white/40">
-                              Set on {new Date(pb.race_date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </p>
-                          </div>
-                          
-                          <div className="bg-aqua-neon/20 border border-aqua-neon/30 rounded-xl px-3 py-2 text-center">
-                            <p className="font-f1 text-lg font-bold text-aqua-neon">
-                              {formatLapTime(pb.best_time)}
-                            </p>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
+
+                        {/* Stats Section */}
+                        <div className="p-3">
+                          {/* Time Comparison */}
+                          <div className="flex items-stretch gap-2">
+                            {/* Your Best */}
+                            <div className={`flex-1 rounded-lg p-2 ${isTrackRecord 
+                              ? 'bg-gradient-to-br from-velocity-yellow/20 to-velocity-yellow/5 border border-velocity-yellow/30' 
+                              : 'bg-aqua-neon/10 border border-aqua-neon/20'}`}>
+                              <p className={`text-[10px] font-medium ${isTrackRecord ? 'text-velocity-yellow/70' : 'text-aqua-neon/70'}`}>
+                                Your Best
+                              </p>
+                              <p className={`font-f1 text-base font-bold ${isTrackRecord ? 'text-velocity-yellow' : 'text-aqua-neon'}`}>
+                                {formatLapTime(pb.best_time)}
+                              </p>
+                            </div>
+
+                            {/* Track Record (only show if not the record holder) */}
+                            {hasGap && pb.track_record && (
+                              <div className="flex-1 rounded-lg p-2 bg-white/5 border border-white/10">
+                                <p className="text-[10px] font-medium text-soft-white/50">
+                                  Record
+                                </p>
+                                <p className="font-f1 text-base font-bold text-soft-white/80">
+                                  {formatLapTime(pb.track_record)}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Gap Indicator */}
+                          {hasGap && (
+                            <div className="mt-2 flex items-center justify-between bg-electric-red/10 border border-electric-red/20 rounded-lg px-2.5 py-1.5">
+                              <span className="text-xs text-soft-white/60">Gap to beat</span>
+                              <span className="font-f1 text-sm font-bold text-electric-red">
+                                +{formatLapTime(pb.gap_to_record!)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Date */}
+                          <p className="text-[10px] text-soft-white/40 mt-2">
+                            {new Date(pb.race_date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
