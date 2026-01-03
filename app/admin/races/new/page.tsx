@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, Trash2, Timer, Save, Loader2, Users, Check } from 'luc
 import { Circuit, Driver } from '@/types/database';
 import { formatLapTime, getPointsForPosition, getCurrentDateTimeLocal } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
+import DateTimePicker from '@/components/ui/DateTimePicker';
 
 type PendingLap = {
   id: string;
@@ -225,12 +226,10 @@ export default function NewRacePage() {
           <div className="glass-card rounded-2xl p-6 space-y-6">
             <div>
               <label className="block text-sm font-medium text-soft-white/70 mb-2">Date & Time *</label>
-              <input
-                type="datetime-local"
-                required
+              <DateTimePicker
                 value={formData.race_date}
-                onChange={(e) => setFormData({ ...formData, race_date: e.target.value })}
-                className={inputClass}
+                onChange={(value) => setFormData({ ...formData, race_date: value })}
+                required
               />
             </div>
 

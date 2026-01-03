@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Trophy, MapPin, Users, Calendar, ChevronRight, Zap } from 'lucide-react';
 import { createServerSupabase } from '@/lib/supabase/server';
 import StatsSection from '@/components/StatsSection';
+import RaceCountdown from '@/components/RaceCountdown';
 
 const features = [
   {
@@ -49,17 +50,43 @@ const features = [
 export default async function Home() {
   const supabase = await createServerSupabase();
 
-  // Get real stats
-  const [racesResult, lapsResult, circuitsResult] = await Promise.all([
+  // Get real stats and next scheduled race
+  const [racesResult, lapsResult, circuitsResult, nextRaceResult] = await Promise.all([
     supabase.from('races').select('id', { count: 'exact', head: true }),
     supabase.from('laps').select('id', { count: 'exact', head: true }),
     supabase.from('circuits').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('races')
+      .select(`
+        id,
+        race_date,
+        race_type,
+        description,
+        circuits (name, photo_url)
+      `)
+      .eq('status', 'scheduled')
+      .gte('race_date', new Date().toISOString())
+      .order('race_date', { ascending: true })
+      .limit(1)
+      .single(),
   ]);
 
   const racesCount = racesResult.count || 0;
   const lapsCount = lapsResult.count || 0;
   const circuitsCount = circuitsResult.count || 0;
   const memoriesCount = lapsCount * 20;
+  
+  // Transform the next race data
+  const nextRace = nextRaceResult.data ? {
+    id: nextRaceResult.data.id,
+    race_date: nextRaceResult.data.race_date,
+    race_type: nextRaceResult.data.race_type as 'race' | 'testing',
+    description: nextRaceResult.data.description,
+    circuit: {
+      name: (nextRaceResult.data.circuits as any)?.name || 'TBA',
+      photo_url: (nextRaceResult.data.circuits as any)?.photo_url || null,
+    },
+  } : null;
 
   return (
     <div className="min-h-screen">
@@ -120,6 +147,13 @@ export default async function Home() {
               </Link>
             </div>
           </div>
+
+          {/* Next Race Countdown */}
+          {nextRace && (
+            <div className="mb-12 md:mb-16">
+              <RaceCountdown race={nextRace} />
+            </div>
+          )}
 
           {/* Feature Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

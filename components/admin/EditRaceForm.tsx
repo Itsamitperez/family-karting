@@ -10,6 +10,7 @@ import { formatLapTime, getPointsForPosition, toDateTimeLocal } from '@/lib/util
 import { getWeatherIconUrl, getWeatherEmoji } from '@/lib/weather';
 import { fetchRaceWeather, clearRaceWeather } from '@/lib/actions/weather';
 import ImageUpload from '@/components/ui/ImageUpload';
+import DateTimePicker from '@/components/ui/DateTimePicker';
 import Image from 'next/image';
 
 type LapWithDriver = Lap & { drivers: { name: string } | null };
@@ -349,12 +350,10 @@ export default function EditRaceForm({ race }: { race: Race }) {
             <div className="glass-card rounded-2xl p-6 space-y-6">
               <div>
                 <label className="block text-sm font-medium text-soft-white/70 mb-2">Date & Time *</label>
-                <input
-                  type="datetime-local"
-                  required
+                <DateTimePicker
                   value={formData.race_date}
-                  onChange={(e) => setFormData({ ...formData, race_date: e.target.value })}
-                  className={inputClass}
+                  onChange={(value) => setFormData({ ...formData, race_date: value })}
+                  required
                 />
               </div>
 
