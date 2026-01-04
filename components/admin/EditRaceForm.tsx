@@ -9,7 +9,7 @@ import { Race, Circuit, Driver, Lap } from '@/types/database';
 import { formatLapTime, getPointsForPosition, toDateTimeLocal } from '@/lib/utils';
 import { getWeatherIconUrl, getWeatherEmoji } from '@/lib/weather';
 import { fetchRaceWeather, clearRaceWeather } from '@/lib/actions/weather';
-import ImageUpload from '@/components/ui/ImageUpload';
+import MultiImageUpload from '@/components/ui/MultiImageUpload';
 import DateTimePicker from '@/components/ui/DateTimePicker';
 import Image from 'next/image';
 
@@ -46,7 +46,7 @@ export default function EditRaceForm({ race }: { race: Race }) {
     race_type: race.race_type || 'race' as 'race' | 'testing',
     circuit_id: race.circuit_id,
     description: race.description || '',
-    attachment_url: race.attachment_url || '',
+    attachment_urls: race.attachment_urls || (race.attachment_url ? [race.attachment_url] : []),
   });
 
   useEffect(() => {
@@ -80,7 +80,8 @@ export default function EditRaceForm({ race }: { race: Race }) {
           race_type: formData.race_type,
           circuit_id: formData.circuit_id,
           description: formData.description || null,
-          attachment_url: formData.attachment_url || null,
+          attachment_urls: formData.attachment_urls.length > 0 ? formData.attachment_urls : null,
+          attachment_url: formData.attachment_urls[0] || null, // Keep legacy field updated
         })
         .eq('id', race.id);
 
@@ -413,13 +414,14 @@ export default function EditRaceForm({ race }: { race: Race }) {
                 />
               </div>
 
-              <ImageUpload
-                label="Attachment (Photo/Receipt)"
-                value={formData.attachment_url}
-                onChange={(url) => setFormData({ ...formData, attachment_url: url })}
+              <MultiImageUpload
+                label="Attachments (Photos/Receipts)"
+                value={formData.attachment_urls}
+                onChange={(urls) => setFormData({ ...formData, attachment_urls: urls })}
                 bucket="images"
                 folder="races"
                 accentColor="velocity-yellow"
+                maxImages={10}
               />
             </div>
 

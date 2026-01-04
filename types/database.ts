@@ -47,6 +47,8 @@ export type Race = {
   circuit_id: string;
   description: string | null;
   attachment_url: string | null;
+  /** @deprecated Use attachment_urls instead */
+  attachment_urls: string[] | null;
   weather_temp: number | null;
   weather_condition: string | null;
   weather_description: string | null;

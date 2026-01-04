@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Trash2, Timer, Save, Loader2, Users, Check } from 'lucide-react';
 import { Circuit, Driver } from '@/types/database';
 import { formatLapTime, getPointsForPosition, getCurrentDateTimeLocal } from '@/lib/utils';
-import ImageUpload from '@/components/ui/ImageUpload';
+import MultiImageUpload from '@/components/ui/MultiImageUpload';
 import DateTimePicker from '@/components/ui/DateTimePicker';
 
 type PendingLap = {
@@ -32,7 +32,7 @@ export default function NewRacePage() {
     race_type: 'race' as 'race' | 'testing',
     circuit_id: '',
     description: '',
-    attachment_url: '',
+    attachment_urls: [] as string[],
   });
 
   useEffect(() => {
@@ -58,7 +58,8 @@ export default function NewRacePage() {
         race_type: formData.race_type,
         circuit_id: formData.circuit_id,
         description: formData.description || null,
-        attachment_url: formData.attachment_url || null,
+        attachment_urls: formData.attachment_urls.length > 0 ? formData.attachment_urls : null,
+        attachment_url: formData.attachment_urls[0] || null, // Keep legacy field updated
       }).select().single();
 
       if (error) throw error;
@@ -290,13 +291,14 @@ export default function NewRacePage() {
               />
             </div>
 
-            <ImageUpload
-              label="Attachment (Photo/Receipt)"
-              value={formData.attachment_url}
-              onChange={(url) => setFormData({ ...formData, attachment_url: url })}
+            <MultiImageUpload
+              label="Attachments (Photos/Receipts)"
+              value={formData.attachment_urls}
+              onChange={(urls) => setFormData({ ...formData, attachment_urls: urls })}
               bucket="images"
               folder="races"
               accentColor="velocity-yellow"
+              maxImages={10}
             />
 
             {/* Driver Selection for Scheduled/Planned Races */}

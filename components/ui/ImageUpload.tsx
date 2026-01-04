@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { createClientSupabase } from '@/lib/supabase/client';
 import { Upload, X, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { compressImage, formatFileSize } from '@/lib/image-compression';
 
 type AccentColor = 'cyber-purple' | 'velocity-yellow' | 'aqua-neon' | 'electric-red';
 
@@ -67,8 +68,9 @@ export default function ImageUpload({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be less than 5MB');
+    // Allow files up to 50MB (will be compressed)
+    if (file.size > 50 * 1024 * 1024) {
+      setError('Image must be less than 50MB');
       return;
     }
 
@@ -76,13 +78,27 @@ export default function ImageUpload({
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      // Compress the image if needed (targets ~1MB, max 1920px dimension)
+      const originalSize = formatFileSize(file.size);
+      const compressedFile = await compressImage(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      });
+      const compressedSize = formatFileSize(compressedFile.size);
+      
+      // Log compression info if file was compressed
+      if (compressedFile.size < file.size) {
+        console.log(`📸 Compressed: ${originalSize} → ${compressedSize}`);
+      }
+
+      const fileExt = compressedFile.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = folder ? `${folder}/${fileName}` : fileName;
 
       const { data, error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file, {
+        .upload(filePath, compressedFile, {
           cacheControl: '3600',
           upsert: false,
         });
@@ -178,7 +194,7 @@ export default function ImageUpload({
               <>
                 <Upload className="w-8 h-8 text-soft-white/30 mb-2" />
                 <p className="text-sm text-soft-white/50">Click to upload or drag and drop</p>
-                <p className="text-xs text-soft-white/30">PNG, JPG, GIF up to 5MB</p>
+                <p className="text-xs text-soft-white/30">PNG, JPG, GIF (auto-compressed)</p>
               </>
             )}
           </label>

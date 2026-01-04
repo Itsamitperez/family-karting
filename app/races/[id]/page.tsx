@@ -229,19 +229,37 @@ export default async function RaceDetailPage({ params }: { params: { id: string 
             <p className="text-soft-white/60 mb-4">{race.description}</p>
           )}
 
-          {/* Attachment */}
-          {race.attachment_url && (
-            <a
-              href={race.attachment_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/30
-                hover:bg-cyber-purple/30 transition-all text-sm"
-            >
-              View Attachment
-              <ExternalLink size={14} />
-            </a>
+          {/* Attachments */}
+          {((race.attachment_urls && race.attachment_urls.length > 0) || race.attachment_url) && (
+            <div className="space-y-3">
+              <p className="text-sm text-soft-white/40">Attachments</p>
+              <div className="flex flex-wrap gap-3">
+                {(race.attachment_urls && race.attachment_urls.length > 0 
+                  ? race.attachment_urls 
+                  : race.attachment_url ? [race.attachment_url] : []
+                ).map((url: string, index: number) => (
+                  <a
+                    key={`attachment-${index}`}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative block w-20 h-20 rounded-xl overflow-hidden
+                      border border-cyber-purple/30 hover:border-cyber-purple transition-all"
+                  >
+                    <Image
+                      src={url}
+                      alt={`Attachment ${index + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 
+                      transition-opacity flex items-center justify-center">
+                      <ExternalLink size={16} className="text-white" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
